@@ -23,7 +23,7 @@ In more detail:
 
 On Mac, you can set up a Python 3.6 environment using `conda`, but you need to install the above packages with pip.
 
-```
+```bash
 #Create a new conda environment named `realtime-buses` with Python version 3.6 (3.7 does not work) and the ipython kernel
 conda create --name realtime-buses python=3.6 ipykernel
 #Activate the new environment
@@ -40,7 +40,7 @@ ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (
 
 On Windows, it should work to install everything with `conda`. Instead of `tables`, install `pytables` (this is needed to load h5 files).
 
-```
+```shell
 #Create a new conda environment named `realtime-buses` with Python version 3.6 (3.7 does not work) and the ipython kernel
 conda create --name realtime-buses python=3.6 ipykernel
 #Activate the new environment
