@@ -34,6 +34,12 @@ pip install geopandas numpy pandas shapely fiona six pyproj tables matplotlib tq
 ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 #Or... not sure what the difference is:
 #python -m ipykernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
+
+#Launch Jupyter in your browser. The directory from which you type the command will be
+#the top level directory in your Jupyter session, and you can navigate down from there
+#if needed. Click on a .ipynb file to open it, or click the 'New' button to create
+#a new notebook. You may have to explicitly select the "Python 3.6 (realtime-buses)" kernel.
+jupyter notebook
 ```
 
 ## Windows
@@ -49,4 +55,9 @@ conda activate realtime-buses
 conda install geopandas numpy pandas shapely fiona six pyproj pytables matplotlib tqdm
 #Install the kernel for the new environment (for the current user) so Jupyter will detect it
 ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
+#Launch Jupyter in your browser. The directory from which you type the command will be
+#the top level directory in your Jupyter session, and you can navigate down from there
+#if needed. Click on a .ipynb file to open it, or click the 'New' button to create
+#a new notebook. You may have to explicitly select the "Python 3.6 (realtime-buses)" kernel.
+jupyter notebook
 ```
