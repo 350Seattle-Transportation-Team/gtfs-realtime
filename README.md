@@ -17,11 +17,11 @@ In a fresh Python 3.6 env:
 pip install pandas geopandas numpy shapely fiona six pyproj tables matplotlib tqdm
 ```
 
-In more detail:
+In more detail, assuming you have successfully installed [Anaconda](https://www.anaconda.com/download/) on your system:
 
-## Mac OS
+## Mac OS X
 
-On Mac, you can set up a Python 3.6 environment using `conda`, but you need to install the above packages with pip.
+On Mac, you can set up a Python 3.6 environment using `conda`, but you need to install the above packages with `pip`.
 
 ```bash
 #Create a new conda environment named `realtime-buses` with Python version 3.6 (3.7 does not work) and the ipython kernel
@@ -31,14 +31,14 @@ source activate realtime-buses
 #Use pip to nstall modules needed for geopandas
 pip install geopandas numpy pandas shapely fiona six pyproj tables matplotlib tqdm
 #Install the kernel for the new environment (for the current user) so Jupyter will detect it
-ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (geopandas)"
+ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 #Or... not sure what the difference is:
 #python -m ipykernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 ```
 
 ## Windows
 
-On Windows, it should work to install everything with `conda`. Instead of `tables`, install `pytables` (this is needed to load h5 files).
+On Windows, it should work to install everything with `conda`. Instead of `tables`, install `pytables` (this is needed to work with `.h5` files).
 
 ```shell
 #Create a new conda environment named `realtime-buses` with Python version 3.6 (3.7 does not work) and the ipython kernel
@@ -48,5 +48,5 @@ conda activate realtime-buses
 #On Windows, instead of pip:
 conda install geopandas numpy pandas shapely fiona six pyproj pytables matplotlib tqdm
 #Install the kernel for the new environment (for the current user) so Jupyter will detect it
-ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (geopandas)"
+ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 ```
