@@ -14,7 +14,7 @@ Additionally, notebooks 2 and 3 reference GTFS feeds that should be downloaded f
 In a fresh Python 3.6 env:
 
 ```
-pip install pandas geopandas numpy shapely fiona six pyproj tables matplotlib tqdm
+pip install pandas geopandas numpy shapely fiona six pyproj tables matplotlib tqdm geopy
 ```
 
 In more detail, assuming you have successfully installed [Anaconda](https://www.anaconda.com/download/) on your system:
@@ -29,7 +29,7 @@ conda create --name realtime-buses python=3.6 ipykernel
 #Activate the new environment
 source activate realtime-buses
 #Use pip to nstall modules needed for geopandas
-pip install geopandas numpy pandas shapely fiona six pyproj tables matplotlib tqdm
+pip install geopandas numpy pandas shapely fiona six pyproj tables matplotlib tqdm geopy
 #Install the kernel for the new environment (for the current user) so Jupyter will detect it
 ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 #Or... not sure what the difference is:
@@ -52,7 +52,7 @@ conda create --name realtime-buses python=3.6 ipykernel
 #Activate the new environment
 conda activate realtime-buses
 #On Windows, instead of pip:
-conda install geopandas numpy pandas shapely fiona six pyproj pytables matplotlib tqdm
+conda install geopandas numpy pandas shapely fiona six pyproj pytables matplotlib tqdm geopy
 #Install the kernel for the new environment (for the current user) so Jupyter will detect it
 ipython kernel install --user --name realtime-buses --display-name "Python 3.6 (realtime-buses)"
 #Launch Jupyter in your browser. The directory from which you type the command will be
