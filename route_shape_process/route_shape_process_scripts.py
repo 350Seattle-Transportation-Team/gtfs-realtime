@@ -1,23 +1,19 @@
-import json
-from collections import defaultdict
 import os
-import re
 import pandas as pd
 import numpy as np
 import geopandas as gpd
 from geopandas import GeoDataFrame
 from shapely.geometry import Point, LineString, MultiLineString
 from shapely.ops import nearest_points
-import pysal as ps
 import networkx as nx
 import multiprocessing
-from functools import partial
-from contextlib import contextmanager
-import argparse
 from datetime import datetime
-from pytz import timezone
 import multiprocessing
 import matplotlib.pyplot as plt 
+
+##################################################################################
+#                        All steps in a row
+##################################################################################
 
 def get_full_trips_all_steps(gtfs_stops,
                             gtfs_stop_times,
@@ -72,13 +68,17 @@ def get_full_trips_all_steps(gtfs_stops,
     return full_edge_only_stops
 
 
+##################################################################################
+#           quick way to find the route_id for a given route_name
+##################################################################################
 
 def get_select_routeid_name(routes_gtfs, routes_of_interest_list):
     '''
     INPUT
     ------
-    all_routes_gtfs_df = One Bus Away data for all routes
+    routes_gtfs = One Bus Away data for all routes
     routes_of_interest_list = python list of routes to select from larger dataset
+                            e.g. ['D Line', 'E Line', '8']
     
     OUTPUT
     ------
@@ -100,15 +100,13 @@ def get_select_routeid_name(routes_gtfs, routes_of_interest_list):
             route_name_to_id_dict[route] = partial_df['route_id'].values[0]
     return (routes_of_interest_df, route_id_to_name_dict, route_name_to_id_dict)
 
+##################################################################################
+#TODO this function is not done
+##################################################################################
+
 def parallelize_dataframe(df, func, func_list):
     '''
-    This function take a pandas dataframe, splits it
-    and applies a function to each dataframe part
-    across CPU_COUNT -1 cores using python's
-    multiprocessing.Pool function
-    then concat() puts the parts back together 
-    NOTE as the tables get bigger - we'll need a
-    virtual machine with more CPUs
+    NOT DONE
     '''
     num_partitions = 10 #number of partitions to split dataframe
     num_cores = multiprocessing.cpu_count() - 1
@@ -118,6 +116,10 @@ def parallelize_dataframe(df, func, func_list):
     pool.join()
     return data
 
+##################################################################################
+#    function to return count of shape_ids associated with a given route
+##################################################################################
+
 def get_shapes_count_from_route_id(trips_df, route_id):
     '''
     '''
@@ -125,12 +127,29 @@ def get_shapes_count_from_route_id(trips_df, route_id):
     
     return shape_trips_df.groupby(['route_id','shape_id']).agg({'shape_id':'count'})
 
+##################################################################################
+#    function to add unique_trip_id to each row
+##################################################################################
+
 def get_unique_trip_id(row):
-    unique_trip = str(row['month'])+"_"+str(row['day'])+"_"+str(row['trip_id'])+"_"+str(row['vehicle_id'])
+    unique_trip = str(row['year'])+"_"+str(row['month'])+"_"+str(row['day'])+"_"+str(row['trip_id'])+"_"+str(row['vehicle_id'])
     return unique_trip
+
+##################################################################################
+#    transform vehicle locations into geopandas dataframe with 
+#    geometry column = vehicle point 
+##################################################################################
 
 def create_vehicle_geo(vehicle_location_df, shape_id):
     '''
+    INPUT
+    --------
+    vehicle_location_df = vehicle location dataframe - 1 row per One Bus Away observation
+    shape_id = one shape_id to filter on
+
+    OUTPUT
+    ---------
+    vehicle_location_geo = geopandas dataframe - geometry = vehicle point
     '''
     vehicle_location_for_shape = vehicle_location_df[vehicle_location_df['shape_id'] == shape_id].copy()
     vehicle_location_for_shape.loc[:,'month_day_trip_veh'] = vehicle_location_for_shape.apply(get_unique_trip_id, axis=1)
@@ -140,14 +159,19 @@ def create_vehicle_geo(vehicle_location_df, shape_id):
     vehicle_location_geo = GeoDataFrame(vehicle_location_for_shape, crs=crs, geometry=vehicle_geometry)
     return vehicle_location_geo
 
+##################################################################################
+#    get list of all trips along the shape_id
+##################################################################################
+
 def get_unique_trip_list_df(vehicle_position_geo, shape_id):
     '''
     INPUT
     -------
+    vehicle_location_geo = geopandas dataframe - geometry = vehicle point
+    shape_id = one shape_id to filter on
 
     OUTPUT
     -------
-    vehicle_trip_df = vehicle_table_name with 'month_day_trip_id' col
     unique_trip_list <-- all the unique trips (month_day_trip_id)
     '''
     vehicle_position_one_shape = vehicle_position_geo[vehicle_position_geo['shape_id'] == shape_id]
@@ -156,19 +180,32 @@ def get_unique_trip_list_df(vehicle_position_geo, shape_id):
     unique_trip_list = list(month_day_trip_veh_df.groups.keys())
     return unique_trip_list
 
-def make_geopandas_shape_df(shape_df, shape_id):
+##################################################################################
+#    turn gtfs shapes file into geopandas dataframe
+##################################################################################
+
+def make_geopandas_shape_df(gtfs_shapes, shape_id):
     '''
     INPUT
     -------
+    gtfs_shapes = gtfs shapes.txt file dataframe
+    shape_id = one shape_id to filter on
     OUTPUT
     -------
-    route_vertex_geo <-- geopandas version of a particular schedule shapes.txt
+    route_vertex_geo <-- geopandas version of a particular schedule shapes.txt geometry = route vertex points
     '''
-    one_shape_df = shape_df[shape_df['shape_id'] == shape_id].copy()
+    one_shape_df = gtfs_shapes[gtfs_shapes['shape_id'] == shape_id].copy()
     crs = {'init':'epsg:4326'}
     shape_geometry = [Point(xy) for xy in zip(one_shape_df.shape_pt_lon, one_shape_df.shape_pt_lat)]
     route_vertex_geo = GeoDataFrame(one_shape_df, crs=crs, geometry=shape_geometry)
     return route_vertex_geo
+
+##################################################################################
+#    create graph network from shape
+#       you'll need to install the networkx library for this step
+#       #TODO - need to think if we can remove the graph and just use
+#       general geopandas/pandas functions
+##################################################################################
 
 def create_network_fromshape(route_vertex_geo, shape_id):
     '''
@@ -205,6 +242,11 @@ def create_network_fromshape(route_vertex_geo, shape_id):
     G.add_weighted_edges_from(edgelist, weight='dist')
     return G
 
+##################################################################################
+#    get graph edge list
+#    an edge is the connector between two graph nodes
+##################################################################################
+
 def get_edge_list(loc1, loc2, G):
     '''get edge list in between two bus locations'''
     node_list = nx.dijkstra_path(G,loc1,loc2)
@@ -215,6 +257,11 @@ def get_edge_list(loc1, loc2, G):
             node2 = node_list[i+1]
             edge_list.append((node1,node2))
     return edge_list
+
+##################################################################################
+#    find closest node to an observed raw bus lat/lon
+#   alternatively could use shapely.ops nearest_points
+##################################################################################
 
 def get_close_node(raw_loc, route_vertex_geo):
     '''
@@ -233,11 +280,16 @@ def get_close_node(raw_loc, route_vertex_geo):
     veh_pt = Point(raw_loc)
     route_vertex_geo['distance'] = route_vertex_geo.distance(veh_pt)
     route_vertex_geo_sorted = route_vertex_geo.sort_values(by=['distance'], axis=0, ascending=True)
-    #add filter for distance too far away
+    #filter for distance too far away happens later - keep all distances here
     distance = route_vertex_geo_sorted.iloc[0]['distance']
     near_node = route_vertex_geo_sorted.iloc[0].geometry.coords[:][0]
     node_num = route_vertex_geo_sorted.iloc[0]['shape_pt_sequence']
     return near_node, node_num, distance
+
+##################################################################################
+#    STILL IN PROGRESS ##
+#       #TODO want to convert all functions so they take advantage of pandas apply
+##################################################################################
 
 def get_close_node_apply(veh_pt, route_vertex_geo):
     '''
@@ -261,6 +313,10 @@ def get_close_node_apply(veh_pt, route_vertex_geo):
     node_num = route_vertex_geo_sorted.iloc[0]['shape_pt_sequence']
     return near_node, node_num, distance
 
+##################################################################################
+#    get travel distance along the graph network path
+##################################################################################
+
 def get_travel_distance(loc1, loc2, route_vertex_geo, G):
     '''
     INPUT
@@ -277,7 +333,10 @@ def get_travel_distance(loc1, loc2, route_vertex_geo, G):
     trav_dist = nx.shortest_path_length(G,node1,node2, weight='dist')
     return trav_dist
 
-
+##################################################################################
+#    get all the trips associated with a shape
+#   also filter for PEAK times 6AM-9AM, 3PM-7PM
+##################################################################################
 
 def get_trip_from_shape_id(one_shape_id, key_routes_positions):
     '''
@@ -296,6 +355,11 @@ def get_trip_from_shape_id(one_shape_id, key_routes_positions):
     
     return (unique_trip_list, veh_commuter_trip_geo)
 
+##################################################################################
+#    FUNCTION IN PROGRESS
+#   #TODO want to use multiprocessing and apply functions for faster processing
+##################################################################################
+
 def create_full_edge_df_multiprocess(unique_trip_list, veh_commuter_trip_geo, route_vertex_geo, G, one_shape_id):
     '''
     '''
@@ -305,6 +369,10 @@ def create_full_edge_df_multiprocess(unique_trip_list, veh_commuter_trip_geo, ro
     pool.close()
     pool.join()
 
+##################################################################################
+#    update all edges in between two bus observations - see update_edges function
+#   for more details
+##################################################################################
 
 
 def create_full_edge_df(unique_trip_list, veh_commuter_trip_geo, route_vertex_geo, G, one_shape_id):
@@ -325,6 +393,10 @@ def create_full_edge_df(unique_trip_list, veh_commuter_trip_geo, route_vertex_ge
         if trip_idx % 100 == 0 and trip_idx != 0:
             print(trip_idx)
     return full_edge_df
+
+##################################################################################
+#    join gtfs files
+##################################################################################
 
 def trip_stop_schedule(gtfs_stops, gtfs_stop_times, gtfs_trips, gtfs_routes):
     '''
@@ -357,14 +429,25 @@ def join_positions_with_gtfs_trips(positions, gtfs_trips, start_gtfs_date, end_g
 
     return positions_w_trips
 
+##################################################################################
+#    add time index columns to help make a unique trip column later
+#   also for filtering instead of using time index <-- if you're into that :)
+##################################################################################
+
 def add_time_index_columns(positions_w_trips):
     '''
     '''
     positions_w_trips.loc[:,'day'] = positions_w_trips.index.day
+    positions_w_trips.loc[:,'year'] = positions_w_trips.index.year #need year since we're combining years
     positions_w_trips.loc[:,'month'] = positions_w_trips.index.month
     positions_w_trips.loc[:,'hour'] = positions_w_trips.index.hour
     positions_w_trips.loc[:,'dow'] = positions_w_trips.index.dayofweek
     return positions_w_trips
+
+
+##################################################################################
+#    convert index from UTC to pct
+##################################################################################
 
 def convert_index_to_pct(positions_df):
     '''
@@ -372,6 +455,12 @@ def convert_index_to_pct(positions_df):
     positions_UTC = positions_df.tz_localize('UTC')
     positions_pacific = positions_UTC.tz_convert('US/Pacific')
     return positions_pacific
+
+##################################################################################
+#    convert time_pct to datetime and set it as index
+#   setting the index, you revert back to UTC 
+# - so you need to convert back to PCT
+##################################################################################
 
 def datetime_transform_positions_df(positions_w_trips):
     '''
@@ -384,6 +473,10 @@ def datetime_transform_positions_df(positions_w_trips):
     
     return positions_w_trips
 
+##################################################################################
+#    create route vertex graph network
+##################################################################################
+
 def get_route_vertex_graph(gtfs_shapes, one_shape_id):
     '''
     '''
@@ -394,6 +487,11 @@ def get_route_vertex_graph(gtfs_shapes, one_shape_id):
                                  one_shape_id)
 
     return (route_vertex_geo, G)
+
+##################################################################################
+#    convert arrival and trip start time to datetime
+#       calculate time from schedule start and delay
+##################################################################################
 
 def full_edge_transformations(full_edge_df, route_vertex_geo, trip_stops_w_name_route):
     '''
@@ -430,16 +528,10 @@ def full_edge_transformations(full_edge_df, route_vertex_geo, trip_stops_w_name_
 
     return full_edge_only_stops
 
-def create_single_trip_df_inputs(unique_trip_id, veh_commuter_trip_geo):
-    '''
-    '''
-    unique_trip_geo_df = veh_commuter_trip_geo[
-                veh_commuter_trip_geo['month_day_trip_veh']==unique_trip_id].copy()
-    trip_id = unique_trip_geo_df['trip_id'].unique()[0]
-    vehicle_id =unique_trip_geo_df['vehicle_id'].unique()[0]
-    route_id = unique_trip_geo_df['route_id'].unique()[0]
-
-    return (unique_trip_geo_df)
+##################################################################################
+#    NEEDS WORK
+#   plotting helper function 
+##################################################################################
 
 def plot_distance_vs_start_time(ax,
                                 color,
@@ -498,6 +590,14 @@ def plot_distance_vs_start_time(ax,
     ax.legend()
     return ax
 
+##################################################################################
+#    NEEDS WORK
+#   function to interpolate between bus observations and update
+#   a "time_at_node" for each stop
+#   limitation - only need bus observations to update the edges/nodes
+#   some locations have more updates than others  
+##################################################################################
+
 def update_edges(vehicle_geo, route_vertex_geo, G,
                     trip_id, vehicle_id, route_id, shape_id):
     #(unique_trip_geo_df, route_vertex_geo, G,
@@ -506,8 +606,6 @@ def update_edges(vehicle_geo, route_vertex_geo, G,
     trips to update the graph'''
     len_veh_locs = len(vehicle_geo)
     vehicle_geo_sorted = vehicle_geo.sort_index()
-    overall_month = vehicle_geo_sorted.index[0].month
-    overall_day = vehicle_geo_sorted.index[0].day
     month_day_trip_veh = vehicle_geo_sorted['month_day_trip_veh'].unique()[0]
     full_edge_df = pd.DataFrame()
     error_counter = 1
@@ -608,6 +706,16 @@ def update_edges(vehicle_geo, route_vertex_geo, G,
                         f.write("\n")
                     error_counter += 1
     return full_edge_df
+
+##################################################################################
+#    FUNCTION IN PROGRESS
+#   ATTEMPTING TO RESTRUCTURE THE ABOVE "update_edges" function
+##################################################################################
+#   function to interpolate between bus observations and update
+#   a "time_at_node" for each stop
+#   limitation - only need bus observations to update the edges/nodes
+#   some locations have more updates than others  
+##################################################################################
 
 def create_graph_edges_apply(row, G):
     try:
