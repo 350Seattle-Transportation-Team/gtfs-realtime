@@ -1,24 +1,52 @@
 import pandas as pd
 import numpy as np
 import os
+import string
 
-class StaticKingCountyGTFS:
+class StaticGTFS:
     """
-    Class to store King County static GTFS tables.
+    Class to store static GTFS tables posted on a specific date.
     """
 
-    def __init__(self, directory, extension='.txt', start_date=None):
+    def __init__(self, directory, extension='.txt', post_date='infer', timezone='US/Pacific'):
         """
-        Initialize from files stored in a directory.
+        Initialize tables from files stored in a directory.
         """
         self.directory = directory
+        self.table_names = []
         with os.scandir(directory) as dir_entries:
             for dir_entry in dir_entries:
                 if dir_entry.name.endswith(extension):
                     table_name = dir_entry.name[:-len(extension)]
+                    self.table_names.append(table_name)
                     table = pd.read_csv(dir_entry.path)
                     setattr(self, table_name, table)
 
-        # self.start_date = pd.to_datetime(start_date) if start_date is not None else None
-        if start_date is not None:
-            self.start_date = start_date
+        # Sort the table names in place
+        self.table_names.sort()
+
+        if post_date=='infer': #Try to infer date from directory
+            # Remove non-alphanumeric characters from directory to make pattern-matching easier
+            dir_alnum = ''.join(ch for ch in directory if ch.isalnum())
+            self.post_date = pd.to_datetime(dir_alnum, format='%Y%m%d', exact=False)
+        else:
+            self.post_date = pd.to_datetime(post_date)
+
+        # Localize the start date to the given timezone, and convert it to UTC
+        self.post_date = self.post_date.tz_localize(timezone).tz_convert('UTC')
+
+class StaticGTFSHistory:
+    """
+    Class to store a collection of static GTFS tables posted historically.
+    """
+
+    def __init__(self, gtfs_list):
+        """
+        Creates a GTFS history from a list of GTFS objects.
+        """
+        #Save a dictionary mapping dates to gtfs objects
+        self.date_to_gtfs = {gtfs.post_date: gtfs for gtfs in gtfs_list}
+
+        #These are redundant but might be convenient
+        self.dates = sorted(gtfs.post_date for gtfs in gtfs_list)
+        self.gtfs_list = gtfs_list
