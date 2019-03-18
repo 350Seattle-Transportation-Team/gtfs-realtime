@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 import os
 
-class GTFS:
+class StaticKingCountyGTFS:
     """
-    Class to store GTFS tables.
+    Class to store King County static GTFS tables.
     """
 
-    def __init__(self, directory, extension='.txt', start_date=None, end_date=None):
+    def __init__(self, directory, extension='.txt', start_date=None):
         """
         Initialize from files stored in a directory.
         """
@@ -22,5 +22,3 @@ class GTFS:
         # self.start_date = pd.to_datetime(start_date) if start_date is not None else None
         if start_date is not None:
             self.start_date = start_date
-        if end_date is not None:
-            self.end_date = end_date
