@@ -35,6 +35,15 @@ class StaticGTFS:
         # Localize the start date to the given timezone, and convert it to UTC
         self.post_date = self.post_date.tz_localize(timezone).tz_convert('UTC')
 
+    def route_ids_from_names(self, *route_short_names):
+        if len(route_short_names) == 0: #Get all the id's if none were passed
+            route_short_names = self.routes.route_short_name
+        else:
+            route_short_names = [str(name) for name in route_short_names]
+
+        return self.routes.loc[self.routes.route_short_name.isin(route_short_names),
+                ['route_short_name', 'route_id']].set_index('route_short_name')
+
 class StaticGTFSHistory:
     """
     Class to store a collection of static GTFS tables posted historically.
