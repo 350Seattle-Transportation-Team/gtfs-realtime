@@ -44,6 +44,17 @@ class StaticGTFS:
         return self.routes.loc[self.routes.route_short_name.isin(route_short_names),
                 ['route_short_name', 'route_id']].set_index('route_short_name')
 
+    def routes_by_name(self, *route_short_names):
+        """
+        Extracts the most saliet data from the routes table (name, id, description),
+        and indexes the table by route_short_name.
+        """
+        route_data = self.routes[['route_short_name', 'route_desc', 'route_id']]
+        if len(route_short_names) > 0:
+            route_short_names = [str(name) for name in route_short_names]
+            route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
+        return route_data.set_index('route_short_name')
+
     # def trip_headsign_and_direction_id_for_routes(route_short_names):
     #     return trips.loc[trips.route_short_name.isin(route_short_names), ]
 
@@ -64,11 +75,22 @@ class StaticGTFS:
             ).agg(
                 {'route_desc': 'max', # There should be only one route description
                 'trip_headsign': lambda x: x.unique(),
-                'shape_id': lambda x: len(x.unique()),
-                'trip_id': 'count'}
+                'shape_id': lambda x: x.nunique(),
+                'trip_id': 'count',
+                'block_id': lambda x: x.nunique(),
+                'trip_short_name': lambda x: x.unique(),
+                'peak_flag': lambda x: sorted(x.unique()),
+                'fare_id': lambda x: sorted(x.unique()),
+                }
             ).rename(
-                columns={'shape_id': 'shape_count', 'trip_id': 'trip_count'}
+                columns={
+                'shape_id': 'shape_count',
+                'trip_id': 'trip_count',
+                'block_id': 'block_count',
+                }
             )
+
+    # def
 
 class StaticGTFSHistory:
     """
