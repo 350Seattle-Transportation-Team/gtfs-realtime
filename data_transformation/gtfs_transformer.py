@@ -44,6 +44,32 @@ class StaticGTFS:
         return self.routes.loc[self.routes.route_short_name.isin(route_short_names),
                 ['route_short_name', 'route_id']].set_index('route_short_name')
 
+    # def trip_headsign_and_direction_id_for_routes(route_short_names):
+    #     return trips.loc[trips.route_short_name.isin(route_short_names), ]
+
+    def trips_by_route_and_direction(self, *route_short_names):
+        """
+        Returns a dataframe aggregated and indexed by route names and direction id's,
+        containing the route description, the list of trip headsigns for each direction,
+        the count of shapes for each direction, and the count of trips for each direction.
+        """
+        route_data = self.routes[['route_id', 'route_short_name', 'route_desc']]
+        if len(route_short_names) > 0:
+            route_short_names = [str(name) for name in route_short_names]
+            route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
+        return self.trips.merge(
+            route_data, on='route_id'
+            ).groupby(
+                by=['route_short_name', 'direction_id']
+            ).agg(
+                {'route_desc': 'max', # There should be only one route description
+                'trip_headsign': lambda x: x.unique(),
+                'shape_id': lambda x: len(x.unique()),
+                'trip_id': 'count'}
+            ).rename(
+                columns={'shape_id': 'shape_count', 'trip_id': 'trip_count'}
+            )
+
 class StaticGTFSHistory:
     """
     Class to store a collection of static GTFS tables posted historically.
