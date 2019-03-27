@@ -163,6 +163,17 @@ class StaticGTFS:
                 }
             )
 
+    def stops_by_id(self, stop_ids=None):
+        """Returns the salient data from the stops table, with index set to `stop_id`.
+        Filters by the given stop ids if any are passed.
+        """
+        stops_data = self.stops[
+                ['stop_id', 'stop_name', 'zone_id', 'stop_lat', 'stop_lon']
+            ].set_index('stop_id')
+        if stop_ids is not None:
+            stops_data = stops_data[stop_ids]
+        return stops_data
+
 class StaticGTFSHistory:
     """
     Class to store a collection of static GTFS tables posted historically.
