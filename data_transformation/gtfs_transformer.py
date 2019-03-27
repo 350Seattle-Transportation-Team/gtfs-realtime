@@ -3,6 +3,33 @@ import numpy as np
 import os
 import string
 
+##################################################################################
+#   Collection of aggregation functions to use with pandas .agg() function,
+#   which does not play well with things that aren't hashable,
+#   so we need to use tuples.
+##################################################################################
+
+def list_all(objects):
+    """Aggregates a collection of objects by putting them in a tuple."""
+    return tuple(objects)
+
+def list_all_sorted(comparable_objects):
+    """Aggregates a collection of comparable objects by sorting them and putting them in a tuple."""
+    return tuple(sorted(comparable_objects))
+
+def count_unique(hashable_objects):
+    """Aggregates hashable objects by counting the unique ones."""
+    return len(set(hashable_objects))
+
+def list_unique(hashable_objects):
+    """Aggregates hashable objects by putting the unique ones in a tuple."""
+    return tuple(set(hashable_objects))
+
+def list_unique_sorted(hashable_comparable_objects):
+    """Aggregates hashable objects by sorting the unique ones and putting them in a tuple.
+    """
+    return tuple(sorted(set(hashable_comparable_objects)))
+
 class StaticGTFS:
     """
     Class to store static GTFS tables posted on a specific date.
@@ -34,6 +61,18 @@ class StaticGTFS:
 
         # Localize the start date to the given timezone, and convert it to UTC
         self.post_date = self.post_date.tz_localize(timezone).tz_convert('UTC')
+
+    def route_ids(self, *route_short_names):
+        """
+        Return a Series indexed by route short names with values equal to the route id.
+        If any route short names are passed as arguments, only those routes will be
+        included in the result.
+        """
+        route_data = self.routes[['route_short_name', 'route_id']]
+        if len(route_short_names) > 0:
+            route_short_names = [str(name) for name in route_short_names]
+            route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
+        return route_data.set_index('route_short_name')['route_id']
 
     def route_ids_from_names(self, *route_short_names):
         if len(route_short_names) == 0: #Get all the id's if none were passed
@@ -69,20 +108,20 @@ class StaticGTFS:
             route_short_names = [str(name) for name in route_short_names]
             route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
 
-        print(route_data)
+        # print(route_data)
         return self.trips.merge(
             route_data, on='route_id'
             ).groupby(
                 by=['route_short_name', 'direction_id']
             ).agg(
                 {'route_desc': 'max', # There should be only one route description per route
-                'trip_headsign': lambda x: x.unique(),
-                'shape_id': lambda x: tuple(x.nunique()),
-                # 'trip_id': 'count',
-                # 'block_id': lambda x: x.nunique(),
-                # 'trip_short_name': lambda x: x.unique(),
-                # 'peak_flag': lambda x: sorted(x.unique()),
-                # 'fare_id': lambda x: x.nunique()
+                'trip_headsign': list_unique_sorted, #lambda x: x.unique(),
+                'shape_id': count_unique, #lambda x: tuple(x.nunique()),
+                'trip_id': 'count',
+                'block_id': count_unique,
+                'trip_short_name': list_unique_sorted,
+                'peak_flag': list_unique_sorted,
+                'fare_id': list_unique_sorted
                 }
             ).rename(
                 columns={
