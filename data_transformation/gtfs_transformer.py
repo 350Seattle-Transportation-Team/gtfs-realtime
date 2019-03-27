@@ -113,8 +113,6 @@ class StaticGTFS:
         # print(route_data)
         return self.trips.merge(
                 route_data, on='route_id'
-            ).merge(
-                self.fare_attributes[['fare_id', 'descriptions']], how='left', on='fare_id'
             ).groupby(
                 by=['route_short_name', 'direction_id']
             ).agg(
@@ -125,14 +123,13 @@ class StaticGTFS:
                 'block_id': count_unique,
                 'trip_short_name': list_unique_sorted,
                 'peak_flag': list_unique_sorted,
-                'descriptions': list_unique_sorted
+                'fare_id': list_unique_sorted
                 }
             ).rename(
                 columns={
                 'shape_id': 'shape_count',
                 'trip_id': 'trip_count',
                 'block_id': 'block_count',
-                'descriptions': 'fare_descriptions'
                 }
             )
 
@@ -148,8 +145,6 @@ class StaticGTFS:
             route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
         return self.trips.merge(
                 route_data, on='route_id'
-            ).merge(
-                self.fare_attributes[['fare_id', 'descriptions']], how='left', on='fare_id'
             ).groupby(
                 by=['route_short_name', 'shape_id']
             ).agg(
@@ -159,13 +154,12 @@ class StaticGTFS:
                 'block_id': count_unique, #lambda x: x.nunique(),
                 'trip_short_name': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
                 'peak_flag': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
-                'descriptions': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
+                'fare_id': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
                 }
             ).rename(
                 columns={
                 'trip_id': 'trip_count',
                 'block_id': 'block_count',
-                'descriptions': 'fare_descriptions'
                 }
             )
 
