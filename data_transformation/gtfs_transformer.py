@@ -9,26 +9,26 @@ import string
 #   so we need to use tuples.
 ##################################################################################
 
-def list_all(objects):
+def list_all(objects: pd.Series) -> tuple:
     """Aggregates a collection of objects by putting them in a tuple."""
     return tuple(objects)
 
-def list_all_sorted(comparable_objects):
+def list_all_sorted(comparable_objects: pd.Series) -> tuple:
     """Aggregates a collection of comparable objects by sorting them and putting them in a tuple."""
     return tuple(sorted(comparable_objects))
 
-def count_unique(hashable_objects):
+def count_unique(hashable_objects: pd.Series) -> int:
     """Aggregates hashable objects by counting the unique ones."""
-    return len(set(hashable_objects))
+    return hashable_objects.nunique() #len(set(hashable_objects))
 
-def list_unique(hashable_objects):
+def list_unique(hashable_objects: pd.Series) -> tuple:
     """Aggregates hashable objects by putting the unique ones in a tuple."""
-    return tuple(set(hashable_objects))
+    return tuple(hashable_objects.unique())
 
-def list_unique_sorted(hashable_comparable_objects):
+def list_unique_sorted(hashable_comparable_objects: pd.Series) -> tuple:
     """Aggregates hashable objects by sorting the unique ones and putting them in a tuple.
     """
-    return tuple(sorted(set(hashable_comparable_objects)))
+    return tuple(sorted(hashable_comparable_objects.unique()))
 
 class StaticGTFS:
     """
@@ -64,7 +64,9 @@ class StaticGTFS:
 
     def route_ids(self, *route_short_names):
         """
-        Return a Series indexed by route short names with values equal to the route id.
+        Return a Series indexed by route short names with values equal to the route id,
+        which can be used like a dictionary to index DataFrames indexed by route id's
+        by route names instead.
         If any route short names are passed as arguments, only those routes will be
         included in the result.
         """
@@ -88,7 +90,7 @@ class StaticGTFS:
         Extracts the most saliet data from the routes table (name, id, description),
         and indexes the table by route_short_name.
         """
-        route_data = self.routes[['route_short_name', 'route_desc', 'route_id']]
+        route_data = self.routes[['route_short_name', 'route_desc', 'agency_id', 'route_id']]
         if len(route_short_names) > 0:
             route_short_names = [str(name) for name in route_short_names]
             route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
@@ -110,24 +112,27 @@ class StaticGTFS:
 
         # print(route_data)
         return self.trips.merge(
-            route_data, on='route_id'
+                route_data, on='route_id'
+            ).merge(
+                self.fare_attributes[['fare_id', 'descriptions']], how='left', on='fare_id'
             ).groupby(
                 by=['route_short_name', 'direction_id']
             ).agg(
                 {'route_desc': 'max', # There should be only one route description per route
                 'trip_headsign': list_unique_sorted, #lambda x: x.unique(),
-                'shape_id': count_unique, #lambda x: tuple(x.nunique()),
+                'shape_id': count_unique,
                 'trip_id': 'count',
                 'block_id': count_unique,
                 'trip_short_name': list_unique_sorted,
                 'peak_flag': list_unique_sorted,
-                'fare_id': list_unique_sorted
+                'descriptions': list_unique_sorted
                 }
             ).rename(
                 columns={
                 'shape_id': 'shape_count',
                 'trip_id': 'trip_count',
                 'block_id': 'block_count',
+                'descriptions': 'fare_descriptions'
                 }
             )
 
@@ -142,22 +147,25 @@ class StaticGTFS:
             route_short_names = [str(name) for name in route_short_names]
             route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
         return self.trips.merge(
-            route_data, on='route_id'
+                route_data, on='route_id'
+            ).merge(
+                self.fare_attributes[['fare_id', 'descriptions']], how='left', on='fare_id'
             ).groupby(
                 by=['route_short_name', 'shape_id']
             ).agg(
                 {'direction_id': 'max', #There should be only one direction per shape
-                'trip_headsign': lambda x: x.unique(),
+                'trip_headsign': list_unique, #lambda x: tuple(x.unique()),
                 'trip_id': 'count',
-                'block_id': lambda x: x.nunique(),
-                'trip_short_name': lambda x: x.unique(),
-                'peak_flag': lambda x: sorted(x.unique()),
-                'fare_id': lambda x: sorted(x.unique()),
+                'block_id': count_unique, #lambda x: x.nunique(),
+                'trip_short_name': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
+                'peak_flag': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
+                'descriptions': list_unique_sorted, #lambda x: tuple(sorted(x.unique())),
                 }
             ).rename(
                 columns={
                 'trip_id': 'trip_count',
                 'block_id': 'block_count',
+                'descriptions': 'fare_descriptions'
                 }
             )
 
