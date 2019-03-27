@@ -164,23 +164,25 @@ class StaticGTFS:
             )
     def trips_for_route_and_direction(self, route_short_name, direction_id):
         """Return trip data for all the trips for the given route and direction."""
-        # route_id = self.route_ids(route_short_name).values[0]
-        # route_data = self.routes.loc[
-        #     self.routes.route_id == route_id, ['route_short_name', 'route_id']
-        #     ]
-        # return route_data.merge(
-        #     self.trips.loc[
-        #             (self.trips.route_id == route_id)
-        #             & (self.trips.direction_id == direction_id)
-        #         ], on='route_id'
-        #     )
-        #
         route_data = self.routes.loc[self.routes.route_short_name == str(route_short_name),
             ['route_short_name', 'route_id']]
         return route_data.merge(
             self.trips.loc[self.trips.direction_id == direction_id],
             on = 'route_id'
         )
+
+    def trip_ids_for_route_and_direction(self, route_short_name, direction_id):
+        """Return trip ids for all the trips for the given route and direction."""
+        # route_data = self.routes.loc[
+        #     self.routes.route_short_name == str(route_short_name), 'route_id']
+        # return route_data.merge(
+        #     self.trips.loc[self.trips.direction_id == direction_id, ['route_id','trip_id']],
+        #     on = 'route_id'
+        # ).trip_id
+        route_id = self.route_ids(route_short_name).values[0]
+        return self.trips.loc[(self.trips.route_id == route_id)
+            & (self.trips.direction_id == direction_id), 'trip_id'
+            ]
 
 
     def stops_by_id(self, stop_ids=None):
