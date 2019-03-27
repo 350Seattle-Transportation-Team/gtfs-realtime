@@ -68,19 +68,21 @@ class StaticGTFS:
         if len(route_short_names) > 0:
             route_short_names = [str(name) for name in route_short_names]
             route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
+
+        print(route_data)
         return self.trips.merge(
             route_data, on='route_id'
             ).groupby(
                 by=['route_short_name', 'direction_id']
             ).agg(
-                {'route_desc': 'max', # There should be only one route description
+                {'route_desc': 'max', # There should be only one route description per route
                 'trip_headsign': lambda x: x.unique(),
-                'shape_id': lambda x: x.nunique(),
-                'trip_id': 'count',
-                'block_id': lambda x: x.nunique(),
-                'trip_short_name': lambda x: x.unique(),
-                'peak_flag': lambda x: sorted(x.unique()),
-                'fare_id': lambda x: sorted(x.unique()),
+                'shape_id': lambda x: tuple(x.nunique()),
+                # 'trip_id': 'count',
+                # 'block_id': lambda x: x.nunique(),
+                # 'trip_short_name': lambda x: x.unique(),
+                # 'peak_flag': lambda x: sorted(x.unique()),
+                # 'fare_id': lambda x: x.nunique()
                 }
             ).rename(
                 columns={
@@ -90,7 +92,35 @@ class StaticGTFS:
                 }
             )
 
-    # def
+    def trips_by_route_and_shape(self, *route_short_names):
+        """
+        Returns a dataframe aggregated and indexed by route names and direction id's,
+        containing the route description, the list of trip headsigns for each direction,
+        the count of shapes for each direction, and the count of trips for each direction.
+        """
+        route_data = self.routes[['route_id', 'route_short_name']]
+        if len(route_short_names) > 0:
+            route_short_names = [str(name) for name in route_short_names]
+            route_data = route_data.loc[route_data.route_short_name.isin(route_short_names),:]
+        return self.trips.merge(
+            route_data, on='route_id'
+            ).groupby(
+                by=['route_short_name', 'shape_id']
+            ).agg(
+                {'direction_id': 'max', #There should be only one direction per shape
+                'trip_headsign': lambda x: x.unique(),
+                'trip_id': 'count',
+                'block_id': lambda x: x.nunique(),
+                'trip_short_name': lambda x: x.unique(),
+                'peak_flag': lambda x: sorted(x.unique()),
+                'fare_id': lambda x: sorted(x.unique()),
+                }
+            ).rename(
+                columns={
+                'trip_id': 'trip_count',
+                'block_id': 'block_count',
+                }
+            )
 
 class StaticGTFSHistory:
     """
