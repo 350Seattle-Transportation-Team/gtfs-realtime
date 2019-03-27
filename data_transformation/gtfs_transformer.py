@@ -162,6 +162,26 @@ class StaticGTFS:
                 'block_id': 'block_count',
                 }
             )
+    def trips_for_route_and_direction(self, route_short_name, direction_id):
+        """Return trip data for all the trips for the given route and direction."""
+        # route_id = self.route_ids(route_short_name).values[0]
+        # route_data = self.routes.loc[
+        #     self.routes.route_id == route_id, ['route_short_name', 'route_id']
+        #     ]
+        # return route_data.merge(
+        #     self.trips.loc[
+        #             (self.trips.route_id == route_id)
+        #             & (self.trips.direction_id == direction_id)
+        #         ], on='route_id'
+        #     )
+        #
+        route_data = self.routes.loc[self.routes.route_short_name == str(route_short_name),
+            ['route_short_name', 'route_id']]
+        return route_data.merge(
+            self.trips.loc[self.trips.direction_id == direction_id],
+            on = 'route_id'
+        )
+
 
     def stops_by_id(self, stop_ids=None):
         """Returns the salient data from the stops table, with index set to `stop_id`.
@@ -171,7 +191,7 @@ class StaticGTFS:
                 ['stop_id', 'stop_name', 'zone_id', 'stop_lat', 'stop_lon']
             ].set_index('stop_id')
         if stop_ids is not None:
-            stops_data = stops_data[stop_ids]
+            stops_data = stops_data.loc[stop_ids]
         return stops_data
 
 class StaticGTFSHistory:
