@@ -61,7 +61,7 @@ def get_full_trips_all_steps(gtfs_stops,
                                    input_dict['one_shape_id'])
 
     print("select only position rows with stops")
-    full_edge_only_stops = full_edge_transformations(full_edge_df, 
+    full_edge_only_stops = full_edge_transformations_stopsonly(full_edge_df, 
                                                  route_vertex_geo, 
                                                  trip_stops_w_name_route)
 
@@ -114,7 +114,7 @@ def parallelize_dataframe(df, func, func_list):
     full_data = pd.concat(pool.map(func, func_list))
     pool.close()
     pool.join()
-    return data
+    #return data
 
 ##################################################################################
 #    function to return count of shape_ids associated with a given route
@@ -125,7 +125,7 @@ def get_shapes_count_from_route_id(trips_df, route_id):
     '''
     shape_trips_df = trips_df[trips_df['route_id'] == route_id].copy()
     
-    return shape_trips_df.groupby(['route_id','shape_id']).agg({'shape_id':'count'})
+    return shape_trips_df.groupby(['route_id','shape_id', 'direction_id']).agg({'shape_id':'count'})
 
 ##################################################################################
 #    function to add unique_trip_id to each row
@@ -341,33 +341,42 @@ def get_travel_distance(loc1, loc2, route_vertex_geo, G):
 def get_trip_from_shape_id(one_shape_id, key_routes_positions):
     '''
     '''
-    key_routes_veh_trip_geo = create_vehicle_geo(key_routes_positions,
-                                                    one_shape_id)
+    if len(key_routes_positions) == 0:
+        print("no trips")
+        return ([""],pd.DataFrame())
+    else:
 
-    print("selecting only peak hours 6AM-9AM, 3PM-7PM")
+        key_routes_veh_trip_geo = create_vehicle_geo(key_routes_positions,
+                                                        one_shape_id)
+
+    '''print("selecting trips from 6AM-7PM")
     veh_commuter_trip_geo = key_routes_veh_trip_geo[
                                     ((key_routes_veh_trip_geo['hour']>=6)&
-                                    (key_routes_veh_trip_geo['hour']<10))|
-                                    ((key_routes_veh_trip_geo['hour']>=15)&
-                                    (key_routes_veh_trip_geo['hour']<20))].copy()
+                                    (key_routes_veh_trip_geo['hour']<20))].copy()'''
 
-    unique_trip_list = get_unique_trip_list_df(veh_commuter_trip_geo, one_shape_id)
-    
-    return (unique_trip_list, veh_commuter_trip_geo)
+    unique_trip_list = get_unique_trip_list_df(key_routes_veh_trip_geo, one_shape_id)
+
+    return (unique_trip_list, key_routes_veh_trip_geo)
 
 ##################################################################################
 #    FUNCTION IN PROGRESS
 #   #TODO want to use multiprocessing and apply functions for faster processing
 ##################################################################################
 
-def create_full_edge_df_multiprocess(unique_trip_list, veh_commuter_trip_geo, route_vertex_geo, G, one_shape_id):
+def create_full_edge_df_apply(unique_trip_list, veh_commuter_trip_geo, route_vertex_geo, G, one_shape_id):
     '''
     '''
-    num_cores = multiprocessing.cpu_count() - 1
-    pool = multiprocessing.Pool(num_cores)
-    full_data = pd.concat(pool.map(func, unique_trip_list))
-    pool.close()
-    pool.join()
+    grouped = veh_commuter_trip_geo.groupby('month_day_trip_veh')
+    full_edge_df = pd.DataFrame()
+    for name, group in grouped:
+        partial_edge_df = group.copy()
+        partial_edge_df['close_node_tuple'] = partial_edge_df.apply(lambda x: get_close_node(x['geometry'].coords[:][0], 
+                                                                                          route_vertex_geo), axis=1)
+        if full_edge_df.empty:
+            full_edge_df = partial_edge_df.copy()
+        else:
+            full_edge_df = full_edge_df.append(partial_edge_df)
+    return full_edge_df
 
 ##################################################################################
 #    update all edges in between two bus observations - see update_edges function
@@ -493,7 +502,7 @@ def get_route_vertex_graph(gtfs_shapes, one_shape_id):
 #       calculate time from schedule start and delay
 ##################################################################################
 
-def full_edge_transformations(full_edge_df, route_vertex_geo, trip_stops_w_name_route):
+def full_edge_transformations_stopsonly(full_edge_df, route_vertex_geo, trip_stops_w_name_route):
     '''
     '''
     full_edge_w_stop_seq = full_edge_df.merge(route_vertex_geo[['shape_pt_lat','shape_pt_lon','shape_pt_sequence']],
@@ -501,8 +510,8 @@ def full_edge_transformations(full_edge_df, route_vertex_geo, trip_stops_w_name_
                                                             right_on=['shape_pt_lat','shape_pt_lon'])
     
     full_edge_schedule = full_edge_w_stop_seq.merge(trip_stops_w_name_route,how='left',
-                                                    left_on=['trip_id','shape_pt_sequence'], 
-                                                    right_on=['trip_id','stop_sequence'])
+                                                    left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
+                                                    right_on=['trip_id','route_id','shape_id','stop_sequence'])
 
     full_edge_schedule['arrival_time'] = full_edge_schedule['arrival_time'].apply(pd.to_datetime)
 
@@ -527,6 +536,31 @@ def full_edge_transformations(full_edge_df, route_vertex_geo, trip_stops_w_name_
                                                     (full_edge_only_stops.loc[:,'arrival_time'].dt.second)/60))
 
     return full_edge_only_stops
+
+def full_edge_transformations_alledges(full_edge_df, route_vertex_geo, trip_stops_w_name_route):
+    '''
+    '''
+    full_edge_w_stop_seq = full_edge_df.merge(route_vertex_geo[['shape_pt_lat','shape_pt_lon','shape_pt_sequence']],
+                                                            how='left',left_on=['pt1_lat','pt1_lon'],
+                                                            right_on=['shape_pt_lat','shape_pt_lon'])
+    
+    full_edge_schedule = full_edge_w_stop_seq.merge(trip_stops_w_name_route,how='left',
+                                                    left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
+                                                    right_on=['trip_id','route_id','shape_id','stop_sequence'])
+
+    full_edge_schedule['arrival_time'] = full_edge_schedule['arrival_time'].apply(pd.to_datetime)
+
+    full_edge_schedule['trip_start_time'] = full_edge_schedule['trip_start_time'].apply(pd.to_datetime)
+    
+    #take the time at every stop and subtract the scheduled start time
+    full_edge_schedule['time_from_scheduled_start'] = (((full_edge_schedule.loc[:,'time_at_node'].dt.hour)*60+
+                                                    full_edge_schedule.loc[:,'time_at_node'].dt.minute+
+                                                    (full_edge_schedule.loc[:,'time_at_node'].dt.second)/60) - 
+                                                    ((full_edge_schedule.loc[:,'trip_start_time'].dt.hour)*60+
+                                                    full_edge_schedule.loc[:,'trip_start_time'].dt.minute+
+                                                    (full_edge_schedule.loc[:,'trip_start_time'].dt.second)/60))
+
+    return full_edge_schedule
 
 ##################################################################################
 #    NEEDS WORK
@@ -706,100 +740,3 @@ def update_edges(vehicle_geo, route_vertex_geo, G,
                         f.write("\n")
                     error_counter += 1
     return full_edge_df
-
-##################################################################################
-#    FUNCTION IN PROGRESS
-#   ATTEMPTING TO RESTRUCTURE THE ABOVE "update_edges" function
-##################################################################################
-#   function to interpolate between bus observations and update
-#   a "time_at_node" for each stop
-#   limitation - only need bus observations to update the edges/nodes
-#   some locations have more updates than others  
-##################################################################################
-
-def create_graph_edges_apply(row, G):
-    try:
-        row['node_tuple']
-        node1, node1 = node_tuple
-        trav_dist = nx.shortest_path_length(G,node1,node2, weight='dist')
-        time1 = vehicle_geo_sorted.index[veh_row_idx]
-        time2 = vehicle_geo_sorted.index[veh_row_idx+1]
-        #print("time1 = {}, time2 = {}".format(time1,time2))
-        time_delta = time2 - time1
-        time_delta_hours = time_delta.total_seconds() / (60 * 60)
-        time_delta_half = time_delta.total_seconds() / 2
-        time_midway = time1 + pd.Timedelta('{} seconds'.format(time_delta_half))
-        hour = time_midway.hour
-        dow = time_midway.dayofweek
-        day = time_midway.day
-        month = time_midway.month
-        time_id = "{}_{}".format(dow, hour)
-        #travel rate in miles per hour
-        trav_rate_update = trav_dist/(time_delta_hours*5280)
-        '''need to find all edges in between loc1 and loc2 and update them'''
-        edge_list = get_edge_list(node1, node2, G)
-        #print("len edge_list for row #{} = {}".format(i,len(edge_list)))
-        edge_for_upload = []
-        col_list = ['month_day_trip_veh', 
-                    'pt1_lon', 'pt1_lat', 'pt2_lon', 'pt2_lat',
-                    'dist_to_pt1','dist_to_pt2',
-                    'start_time', 'end_time', 'mid_time', 'time_at_node',
-                    'hour', 'dow', 'day', 'month', 'travel_rate',
-                    'dist_btw_observ','edge_length','real_observ',
-                    'trip_id', 'vehicle_id', 'route_id','shape_id']
-        time_at_node = time1
-        for edge_idx, edge in enumerate(edge_list):
-            #add a value 'real_pt' to keep track of actual observations vs interpolated observations
-            node1 = edge[0]
-            node1_lon = edge[0][0]
-            node1_lat = edge[0][1]
-            node2 = edge[1]
-            node2_lon = edge[1][0]
-            node2_lat = edge[1][1]
-            edge_length = G.get_edge_data(node1,node2)['dist']
-            if edge_idx == 0:
-                real_pt = True
-            else:
-                real_pt = False
-                #edge_length is in feet, travel_rate_update mph
-                travel_rate_ft_per_sec = trav_rate_update*(5280)*(1/(60*60))
-                time_at_node += pd.Timedelta('{} seconds'.format(edge_length/travel_rate_ft_per_sec))
-                '''print("travel_rate_fps {}, time at node #{} - {} - ".format(travel_rate_ft_per_sec, 
-                                                                            edge_idx,
-                                                                            time_at_node))'''
-            info_tuple = (month_day_trip_veh,
-                            node1_lon, node1_lat, node2_lon,
-                                node2_lat,dist1, dist2,
-                                time1, time2, time_midway,time_at_node,
-                                hour, dow, day, month, trav_rate_update,
-                                    trav_dist, edge_length, real_pt,
-                                trip_id, vehicle_id, route_id, shape_id)
-            edge_for_upload.append(info_tuple)
-        edge_df = pd.DataFrame(edge_for_upload, columns=col_list)
-        if veh_row_idx == 0:
-            full_edge_df = edge_df.copy()
-        elif full_edge_df.empty:
-            full_edge_df = edge_df.copy()
-        else:
-            full_edge_df = full_edge_df.append(edge_df)
-
-    #print("writing to GCP {}-{}".format(time_midway, trip_id))
-    except nx.NetworkXNoPath:
-        #print("we have an exception")
-        time1 = vehicle_geo_sorted['veh_time_pct'].iloc[veh_row_idx]
-        day = time1.day
-        month = time1.month
-        output_str = (
-        "{}{}\n{}{}\n{}{}\n{}{}\n\
-        ".format('node1 -', node1,
-                'node2 -', node2,
-                'shape_id -', shape_id,
-                'error_num - ', error_counter))
-        time_str = str(month)+"_"+str(day)
-        file_path = './bad_network_nodes.txt'
-        with open(file_path, "a") as f:
-            f.write("month_day - "+time_str)
-            f.write("\n")
-            f.write(output_str)
-            f.write("\n")
-        error_counter += 1
