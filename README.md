@@ -63,3 +63,8 @@ jupyter notebook
 ```
 Windows trouble shooting notes:
 1. If you followed the conda install's bad advice not to add conda to your path, you may have to add a bunch of stuff to your path (e.g. if you get an HTTP error involving ssl not found).  I (Alice) found that I had to run setx PATH "%path%";c:\Users\Alice\Anaconda3\;c:\Users\Alice\Anaconda3\scripts;c:\Users\Alice\Anaconda3\condabin.
+2. If you get a PackagesNotFound error for geopy:
+  #Add geoforge channel and install geopy
+  conda config --append channels conda-forge
+  conda install geopy
+
