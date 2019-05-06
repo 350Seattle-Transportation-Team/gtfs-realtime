@@ -1,0 +1,6 @@
+#ignore local files
+*.h5
+*.csv
+*.geojson
+*.json
+*.html
