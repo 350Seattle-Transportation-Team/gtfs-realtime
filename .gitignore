@@ -7,7 +7,40 @@ __pycache__
 #Mac OS stuff
 .DS_Store
 
-#ignoring .csv and .geojson and .json stored locally
-.csv
-.geojson
-.json
+#adding my local temp files - sorry this is gross
+#open to suggestions (Ben)
+data/transformed/100263/route_100101_shape_10021372_raw_w_nearest_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-08-15_2018-09-23.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-09-25_2018-11-01.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-11-10_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_stopsonly_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_raw_w_nearest_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007007_stopsonly_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_21007003_slowspots_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_21007003_stopsonly_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_102615_shape_11675003_slowspots_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_102615_shape_11675003_raw_w_nearest_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_21007015_stopsonly_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_21007003_raw_w_nearest_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_stopsonly_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_untransformed_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_TRANSFORMED_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-08-15_2018-12-11.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-09-24_2018-09-24.csv
+data/transformed/100263/route_100263_shape_10007006_full_edge_2018-11-02_2018-11-09.csv
+data/transformed/100263/route_7_shape_10007006.geojson
+data/transformed/100263/route_7_shape_10007007.geojson
+data/transformed/100263/route_7_shape_10021372.geojson
+data/transformed/100263/route_7_shape_11675003.geojson
+data/transformed/100263/route_7_shape_21007003.geojson
+data/transformed/100263/route_7_shape_21007015.geojson
+route_shape_process/gtfs_2018-08-15_2018-12-12.csv
+route_shape_process/gtfs_routes_2018-08-15_2018-12-12.csv
+route_shape_process/gtfs_shapes_2018-08-15_2018-12-12.csv
+route_shape_process/gtfs_trips_2018-08-15_2018-12-12.csv
+route_shape_process/route_102615_11675003_Aurora Village Transit Center _bad_speed_count.geojson
+route_shape_process/route_102615_shape_11675003.geojson
+route_shape_process/route_102615_shape_11675003_raw_w_nearest_2018-08-15_2018-12-11.csv
+route_shape_process/route_102615_shape_11675003_slowspots_2018-08-15_2018-12-11.csv
+route_shape_process/route_102615_shape_11675003_stopsonly_2018-08-15_2018-12-11.csv
+route_shape_process/_map.html
