@@ -9,7 +9,8 @@ import networkx as nx
 import multiprocessing
 from datetime import datetime
 import multiprocessing
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
+import sys
 
 ##################################################################################
 #                        All steps in a row
@@ -341,7 +342,7 @@ def get_travel_distance(loc1, loc2, route_vertex_geo, G):
 def get_trip_from_shape_id(one_shape_id, key_routes_positions):
     '''
     '''
-    if len(key_routes_positions) == 0:
+    if len(key_routes_positions) == 0 or len(key_routes_positions[key_routes_positions['shape_id'] == one_shape_id])==0:
         print("no trips")
         return ([""],pd.DataFrame())
     else:
@@ -624,6 +625,141 @@ def plot_distance_vs_start_time(ax,
     ax.legend()
     return ax
 
+def get_point_coords(row, route_vertex_geo):
+    if isinstance(row['geometry'], float):
+        return ''
+    else:
+        return get_close_node(row['geometry'].coords[:][0], route_vertex_geo)
+
+def get_close_node_parallel(df_group, route_vertex_geo):
+    '''
+    '''
+    df_group['close_node_tuple'] = df_group.apply(get_point_coords, route_vertex_geo=route_vertex_geo, axis=1).copy()
+    return df_group
+
+def full_step_process():
+    n_pools = multiprocessing.cpu_count() - 1
+    pool = multiprocessing.Pool(n_pools)
+    positions_w_near_node_dict = {}
+    for gtfs_group in positions_w_trips.keys():
+        print("starting {}".format(gtfs_group))
+        if positions_w_trips_geo_dict[gtfs_group].empty:
+            pass
+        else:
+            grouped = positions_w_trips_geo_dict[gtfs_group].groupby('month_day_trip_veh')
+            route_vertex_geo = route_vertex_geo_dict[gtfs_group]
+            trip_group_tuple_list = []
+            for name, group in grouped:
+                trip_group_tuple_list.append((group, route_vertex_geo))
+            positions_w_near_node_df = pd.concat(pool.starmap(get_close_node_parallel, trip_group_tuple_list))
+            positions_w_near_node_dict[gtfs_group] = positions_w_near_node_df
+    return positions_w_near_node_dict
+
+def unpack_near_node_column(positions_w_near_node_dict):
+    for gtfs_group in positions_w_near_node_dict.keys():
+        positions_w_near_node_dict[gtfs_group]['near_node_pt'] = positions_w_near_node_dict[gtfs_group].apply(lambda x: x['close_node_tuple'][0], axis=1)
+        positions_w_near_node_dict[gtfs_group]['shape_pt_sequence'] = positions_w_near_node_dict[gtfs_group].apply(lambda x: x['close_node_tuple'][1], axis=1)
+        positions_w_near_node_dict[gtfs_group]['dist_to_nearest_route_pt'] = positions_w_near_node_dict[gtfs_group].apply(lambda x: x['close_node_tuple'][2], axis=1)
+        positions_w_near_node_dict[gtfs_group].drop('close_node_tuple', axis=1, inplace=True)
+        positions_w_near_node_dict[gtfs_group].drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
+    return positions_w_near_node_dict
+
+def datetime_transform_df(df):
+    '''
+    '''
+    df['time_pct'] = df['time_pct'].apply(pd.to_datetime)
+    df.set_index('time_pct', inplace=True)
+    df.sort_index(inplace=True)
+    df = df.tz_localize('UTC')
+    df = df.tz_convert('US/Pacific')
+    
+    return df
+
+def join_tripstart_unpacked(unpacked_positions_w_near_node_df, trip_stops_w_name_route):
+    '''
+    '''
+    normal_hours = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    #drop hours near '0' because the hour comparison gets messed up - gtfs has hours > 23 :(
+    unpacked_positions_w_near_node_df = unpacked_positions_w_near_node_df[unpacked_positions_w_near_node_df.hour.isin(normal_hours)]
+    
+    if 'trip_stops_w_name_route' in trip_stops_w_name_route.columns:
+        trip_stops_w_name_route.drop('trip_stops_w_name_route', axis=1, inplace=True)
+    position_w_node_schedule = unpacked_positions_w_near_node_df.merge(trip_stops_w_name_route,how='left',
+                                                    left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
+                                                    right_on=['trip_id','route_id','shape_id','stop_sequence'])
+    
+    position_w_node_schedule = position_w_node_schedule[position_w_node_schedule['stop_name'].notnull()]
+    
+    
+    
+    position_w_node_schedule = datetime_transform_df(position_w_node_schedule)
+    
+    position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
+
+    position_w_node_schedule['trip_start_time'] = position_w_node_schedule['trip_start_time'].apply(pd.to_datetime)
+        
+    #take the time at every stop and subtract the scheduled start time
+    position_w_node_schedule['time_from_scheduled_start'] = (((position_w_node_schedule.index.hour)*60+
+                                                    position_w_node_schedule.index.minute+
+                                                    (position_w_node_schedule.index.second)/60) - 
+                                                    ((position_w_node_schedule.loc[:,'trip_start_time'].dt.hour)*60+
+                                                    position_w_node_schedule.loc[:,'trip_start_time'].dt.minute+
+                                                    (position_w_node_schedule.loc[:,'trip_start_time'].dt.second)/60))
+
+    return position_w_node_schedule
+
+def get_most_used_shape_id_per_direction(full_trip_stop_schedule, route_id, direction_id):
+    '''
+    '''
+    full_df = pd.DataFrame()
+    for name, group in full_trip_stop_schedule[full_trip_stop_schedule['route_id'] == input_dict['route_id']].groupby(['start_gtfs_date','end_gtfs_date']):
+        #print(name)
+        temp_df = group.groupby(['shape_id', 'direction_id','trip_headsign']).agg({'shape_id':'count'})\
+                                .rename(columns={'shape_id':'shape_id_count'})\
+                                .reset_index()
+        #print(temp_df)
+        if full_df.empty:
+            full_df = temp_df
+        else:
+            full_df = full_df.append(temp_df)
+    #############################################################################
+    '''full_df has all shape_id, direction_id combinations over many gtfs
+    full_df_sorted groups by 'shape_id','direction_id','trip_headsign'
+    and sorts by the highest sum of shape_id_count (i.e. the most used shape)
+    TODO - there are routes with many "popular" shapes - this function will only pick 1
+    ideally we could find the part of the route that is consistent (usually the middle)
+    and combine all observations using this common shape'''
+    ###############################################################################
+    full_df_sorted = full_df.groupby(['shape_id','direction_id','trip_headsign'])\
+                .agg({'shape_id_count':'sum'})\
+                .reset_index()\
+                .sort_values('shape_id_count', ascending=False)
+    
+    shape_id = full_df_sorted.loc[full_df_sorted['direction_id']==direction_id].iloc[0]['shape_id']
+    trip_headsign = full_df_sorted.loc[full_df_sorted['direction_id']==direction_id].iloc[0]['trip_headsign']
+
+    return (shape_id, trip_headsign)
+
+def get_positions_months_route_id(month_list, route_id):
+    '''
+    month_list = ['201809', '201810', '201811'] need to point to
+    the right folder holding your h5 files
+    '''
+    for i, position_date in enumerate(month_list):
+        if i == 0:
+            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date))
+            #print(position_date,len(positions), positions.columns)
+            route_positions = positions[positions['route_id']==route_id].copy()
+            #del [positions_201809]
+            full_route_positions = route_positions.copy()
+        else:
+            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date))
+            #print(position_date,len(positions), positions.columns)
+            route_positions = positions[positions['route_id']==route_id].copy()
+            #del [positions_201809]
+            full_route_positions = full_route_positions.append(route_positions)
+    return full_route_positions
+
 ##################################################################################
 #    NEEDS WORK
 #   function to interpolate between bus observations and update
@@ -740,3 +876,90 @@ def update_edges(vehicle_geo, route_vertex_geo, G,
                         f.write("\n")
                     error_counter += 1
     return full_edge_df
+
+if __name__ == "__main__":
+    '''
+    first trial - needs to be in the same folder as the following files:
+    - see notebook 01 for transforming gtfs
+    "gtfs_routes_2018-08-15_2018-12-12.csv"
+    "gtfs_shapes_2018-08-15_2018-12-12.csv"
+    "gtfs_trips_2018-08-15_2018-12-12.csv"
+    "gtfs_2018-08-15_2018-12-12.csv"
+    usage route_shape_process_scripts.py <route_short_name>
+    '''
+
+    print("grabbing arguments")
+    route_of_interest = sys.argv[1]
+
+    print("grabbing csv")
+    full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv")
+    full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv")
+    full_trips_gtfs = pd.read_csv("input_gtfs/gtfs_trips_2018-08-15_2018-12-12.csv")
+    full_trip_stop_schedule = pd.read_csv("input_gtfs/gtfs_2018-08-15_2018-12-12.csv")
+
+    route_name_to_id_dict = dict(zip(full_routes_gtfs.route_short_name.tolist(),
+                                full_routes_gtfs.route_id.tolist()))
+
+    route_of_interest_id = route_name_to_id_dict[route_of_interest]
+    input_dict = {'route_id':route_of_interest_id}
+
+    month_list = ['201809', '201810', '201811']
+
+    print("running get_positions_months_route_id")
+    full_route_positions = get_positions_months_route_id(month_list, 
+                                                        input_dict['route_id'])
+
+    full_route_positions = convert_index_to_pct(full_route_positions)
+    full_route_positions = add_time_index_columns(full_route_positions)
+
+    direction_id_list = [0,1]
+    for direction in direction_id_list:
+        shape_id, trip_headsign = get_most_used_shape_id_per_direction(full_trip_stop_schedule, input_dict['route_id'], direction)
+        input_dict['shape_id'] = shape_id
+
+        print("starting process for direction = {}, shape_id = {}".format(direction, shape_id))
+
+        route_vertex_geo_dict = {}
+        G_dict = {}
+        print("running get_route_vertex_graph")
+        for name, group in full_shapes_gtfs.groupby(
+                        ['start_gtfs_date','end_gtfs_date']):
+            #print(name)
+            route_vertex_geo_dict[name], G_dict[name] = get_route_vertex_graph(group, 
+                                                            input_dict['shape_id'])
+        positions_w_trips = {}
+        print("running join_positions_with_gtfs_trips")
+        for name, group in full_trips_gtfs.groupby(['start_gtfs_date','end_gtfs_date']):
+            #print(name)
+            positions_w_trips[name] = join_positions_with_gtfs_trips(full_route_positions, 
+                                                                    group, 
+                                                                    name[0], 
+                                                                    name[1])
+        unique_trip_list_dict = {}
+        positions_w_trips_geo_dict = {}
+        print("running positions_w_trips_geo_dict")
+        for gtfs_groups in positions_w_trips.keys():
+            #print(gtfs_groups)
+            unique_trip_list_dict[gtfs_groups], positions_w_trips_geo_dict[gtfs_groups] = get_trip_from_shape_id(input_dict['shape_id'], 
+                                                                                                                positions_w_trips[gtfs_groups])
+        positions_w_near_node_dict = full_step_process()
+
+        print("running unpack_near_node_column")
+        unpacked_positions_w_near_node_dict = unpack_near_node_column(positions_w_near_node_dict)
+
+        print("running unpacked_positions_w_near_node_dict")
+        for idx, dict_group in enumerate(unpacked_positions_w_near_node_dict.keys()):
+            #print(dict_group)
+            if idx == 0:
+                unpacked_positions_full = unpacked_positions_w_near_node_dict[dict_group].copy()
+            else:
+                unpacked_positions_full = unpacked_positions_full.append(unpacked_positions_w_near_node_dict[dict_group])
+
+        unpacked_positions_full.to_csv('transformed/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
+                                        route_of_interest,"".join(trip_headsign.split(" ")) ,input_dict['shape_id']), index=False)
+        print("running join_tripstart_unpacked")
+        unpacked_positions_full_w_start = join_tripstart_unpacked(unpacked_positions_full, 
+                                                                full_trip_stop_schedule)
+
+        unpacked_positions_full_w_start.to_csv('transformed/route_{}_{}_shape_{}_stopsonly_2018-08-15_2018-12-11.csv'.format(
+                                        route_of_interest,"".join(trip_headsign.split(" ")), input_dict['shape_id']), index=False)
