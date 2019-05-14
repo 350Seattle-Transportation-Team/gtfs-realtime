@@ -709,10 +709,13 @@ def unpack_near_node_column(positions_w_near_node_dict):
 def datetime_transform_df(df):
     '''
     '''
+    logging.info("{}, {}".format(df['time_pct'].iloc[0],type(df['time_pct'].iloc[0])))
     df['time_pct'] = df['time_pct'].apply(pd.to_datetime)
     df.set_index('time_pct', inplace=True)
     df.sort_index(inplace=True)
-    df = df.tz_localize('UTC').dt.tz_convert('US/Pacific')
+    logging.info("{}, {}".format(df.index.iloc[0],type(df.index.iloc[0])))
+    df = df.tz_localize('UTC')
+    df = df.tz_convert('US/Pacific')
     
     return df
 
