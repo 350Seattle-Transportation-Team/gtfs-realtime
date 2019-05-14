@@ -493,6 +493,8 @@ def add_time_index_columns(positions_w_trips):
     positions_w_trips.loc[:,'month'] = positions_w_trips.index.month
     positions_w_trips.loc[:,'hour'] = positions_w_trips.index.hour
     positions_w_trips.loc[:,'dow'] = positions_w_trips.index.dayofweek
+
+    positions_w_trips.sort_index(inplace=True)
     return positions_w_trips
 
 
