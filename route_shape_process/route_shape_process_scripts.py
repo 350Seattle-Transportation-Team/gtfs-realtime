@@ -9,7 +9,6 @@ import networkx as nx
 import multiprocessing
 from datetime import datetime
 import multiprocessing
-import matplotlib.pyplot as plt
 import sys
 import boto3
 import logging
@@ -449,6 +448,7 @@ def create_full_edge_df(unique_trip_list, veh_commuter_trip_geo, route_vertex_ge
 #    join gtfs files
 ##################################################################################
 
+
 def trip_stop_schedule(gtfs_stops, gtfs_stop_times, gtfs_trips, gtfs_routes):
     '''
     '''
@@ -796,6 +796,7 @@ def get_positions_months(month_list):
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
 
             full_route_positions = full_route_positions.append(positions)
+    full_route_positions.sort_index()
     return full_route_positions
 
 ##################################################################################
