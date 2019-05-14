@@ -493,8 +493,7 @@ def add_time_index_columns(positions_w_trips):
     positions_w_trips.loc[:,'month'] = positions_w_trips.index.month
     positions_w_trips.loc[:,'hour'] = positions_w_trips.index.hour
     positions_w_trips.loc[:,'dow'] = positions_w_trips.index.dayofweek
-
-    positions_w_trips.sort_index(inplace=True)
+    
     return positions_w_trips
 
 
@@ -713,8 +712,7 @@ def datetime_transform_df(df):
     df['time_pct'] = df['time_pct'].apply(pd.to_datetime)
     df.set_index('time_pct', inplace=True)
     df.sort_index(inplace=True)
-    df = df.tz_localize('UTC')
-    df = df.tz_convert('US/Pacific')
+    df = df.tz_localize('UTC').dt.tz_convert('US/Pacific')
     
     return df
 
