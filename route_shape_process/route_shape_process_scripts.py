@@ -796,7 +796,7 @@ def get_positions_months(month_list):
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
 
             full_route_positions = full_route_positions.append(positions)
-    full_route_positions.sort_index()
+    full_route_positions.sort_index(inplace=True)
     return full_route_positions
 
 ##################################################################################
