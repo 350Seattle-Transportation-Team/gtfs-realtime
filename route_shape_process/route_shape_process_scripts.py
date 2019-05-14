@@ -712,7 +712,7 @@ def datetime_transform_df(df):
     df['time_pct'] = df['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
     df.set_index('time_pct', inplace=True)
     df.sort_index(inplace=True)
-    df.index=pd.DatetimeIndex(df.index).tz_localize('UTC').tz_convert('US/Pacific')
+    df.index=pd.DatetimeIndex(df.index).tz_convert('US/Pacific')
     
     return df
 
