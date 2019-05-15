@@ -788,11 +788,11 @@ def get_positions_months(month_list):
     '''
     for i, position_date in enumerate(month_list):
         if i == 0:
-            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date))
+            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date),low_memory=False)
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
             full_route_positions = positions.copy()
         else:
-            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date))
+            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date),low_memory=False)
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
 
             full_route_positions = full_route_positions.append(positions)
@@ -954,10 +954,10 @@ if __name__ == "__main__":
     #route_of_interest = sys.argv[1]
 
     logging.info("grabbing csv")
-    full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv")
-    full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv")
-    full_trips_gtfs = pd.read_csv("input_gtfs/gtfs_trips_2018-08-15_2018-12-12.csv")
-    full_trip_stop_schedule = pd.read_csv("input_gtfs/gtfs_2018-08-15_2018-12-12.csv")
+    full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv",low_memory=False)
+    full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv",low_memory=False)
+    full_trips_gtfs = pd.read_csv("input_gtfs/gtfs_trips_2018-08-15_2018-12-12.csv",low_memory=False)
+    full_trip_stop_schedule = pd.read_csv("input_gtfs/gtfs_2018-08-15_2018-12-12.csv",low_memory=False)
 
     route_name_to_id_dict = dict(zip(full_routes_gtfs.route_short_name.tolist(),
                                 full_routes_gtfs.route_id.tolist()))
