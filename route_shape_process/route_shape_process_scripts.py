@@ -709,10 +709,10 @@ def unpack_near_node_column(positions_w_near_node_dict):
 def datetime_transform_df(df):
     '''
     '''
-    df['time_pct'] = df['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
+    df['time_pct'] = df['time_pct'].apply(lambdapd.to_datetime, utc=True)
     df.set_index('time_pct', inplace=True)
     df.sort_index(inplace=True)
-    df.index=pd.DatetimeIndex(df.index).tz_convert('US/Pacific')
+    df.index=pd.DatetimeIndex(df.index).tz_localize('UTC').tz_convert('US/Pacific')
     
     return df
 
@@ -731,18 +731,18 @@ def join_tripstart_unpacked(unpacked_positions_w_near_node_df, trip_stops_w_name
     
     position_w_node_schedule = position_w_node_schedule[position_w_node_schedule['stop_name'].notnull()]
     
-    
-    
-    position_w_node_schedule = datetime_transform_df(position_w_node_schedule)
-    
+    position_w_node_schedule.loc[:,'time_pct'] = position_w_node_schedule['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
+
+    position_w_node_schedule.loc[:,'time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
+        
     position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
 
     position_w_node_schedule['trip_start_time'] = position_w_node_schedule['trip_start_time'].apply(pd.to_datetime)
         
     #take the time at every stop and subtract the scheduled start time
-    position_w_node_schedule['time_from_scheduled_start'] = (((position_w_node_schedule.index.hour)*60+
-                                                    position_w_node_schedule.index.minute+
-                                                    (position_w_node_schedule.index.second)/60) - 
+    position_w_node_schedule['time_from_scheduled_start'] = (((position_w_node_schedule.loc[:,'time_pct'].dt.hour)*60+
+                                                    position_w_node_schedule.loc[:,'time_pct'].dt.minute+
+                                                    (position_w_node_schedule.loc[:,'time_pct'].dt.second)/60) - 
                                                     ((position_w_node_schedule.loc[:,'trip_start_time'].dt.hour)*60+
                                                     position_w_node_schedule.loc[:,'trip_start_time'].dt.minute+
                                                     (position_w_node_schedule.loc[:,'trip_start_time'].dt.second)/60))
