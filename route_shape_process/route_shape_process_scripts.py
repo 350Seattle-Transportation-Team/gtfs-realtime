@@ -962,16 +962,18 @@ if __name__ == "__main__":
     route_name_to_id_dict = dict(zip(full_routes_gtfs.route_short_name.tolist(),
                                 full_routes_gtfs.route_id.tolist()))
 
-    data = {'route_name':list(route_name_to_id_dict.keys()), 'status':len(route_name_to_id_dict.keys())*['not_started']}
-    route_status = pd.DataFrame.from_dict(data)
+    #data = {'route_name':list(route_name_to_id_dict.keys()), 'status':len(route_name_to_id_dict.keys())*['not_started']}
+    #route_status = pd.DataFrame.from_dict(data)
     s3_prefix = "progress/"
     csv_name = "route_progress_status.csv"
-    send_output_df_to_s3(route_status, s3_prefix, csv_name)
+    route_status_file_key = s3_prefix+csv_name
+    route_status_df = get_csv_s3_make_df(route_status_file_key)
 
+    remaining_routes = route_status_df[route_status_df['status']!='done']['route_name'].unique()
     month_list = ['201809', '201810', '201811']
     all_route_positions = get_positions_months(month_list)
     #
-    for route_of_interest in route_name_to_id_dict.keys():
+    for route_of_interest in remaining_routes:
         logging.info("starting work on route name = {}".format(route_of_interest))
         route_of_interest_id = route_name_to_id_dict[route_of_interest]
         input_dict = {'route_id':route_of_interest_id}
