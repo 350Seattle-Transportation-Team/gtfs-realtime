@@ -971,7 +971,7 @@ if __name__ == "__main__":
     route_status_file_key = s3_prefix+csv_name
     route_status_df = get_csv_s3_make_df(route_status_file_key)
 
-    remaining_routes = route_status_df[route_status_df['status']=='not started']['route_name'].unique()
+    remaining_routes = route_status_df[route_status_df['status']=='not_started']['route_name'].unique()
     month_list = ['201809', '201810', '201811']
     all_route_positions = get_positions_months(month_list)
     #
