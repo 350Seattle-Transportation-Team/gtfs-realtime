@@ -709,7 +709,7 @@ def unpack_near_node_column(positions_w_near_node_dict):
 def datetime_transform_df(df):
     '''
     '''
-    df['time_pct'] = df['time_pct'].apply(lambdapd.to_datetime, utc=True)
+    df['time_pct'] = df['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
     df.set_index('time_pct', inplace=True)
     df.sort_index(inplace=True)
     df.index=pd.DatetimeIndex(df.index).tz_localize('UTC').tz_convert('US/Pacific')
@@ -1033,7 +1033,7 @@ if __name__ == "__main__":
                     else:
                         unpacked_positions_full = unpacked_positions_full.append(unpacked_positions_w_near_node_dict[dict_group])
                 csv_name = 'raw/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
-                                                route_of_interest,"".join(trip_headsign.split(" ")) ,input_dict['shape_id'])
+                                                route_of_interest,"".join(trip_headsign.split(" ").replace("/","-")) ,input_dict['shape_id'])
                 s3_prefix = "route_shape_files/"
                 send_output_df_to_s3(unpacked_positions_full, s3_prefix,  csv_name)
                 #unpacked_positions_full.to_csv('transformed/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
