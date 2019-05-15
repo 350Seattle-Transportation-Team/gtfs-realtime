@@ -695,6 +695,8 @@ def full_step_process():
                 trip_group_tuple_list.append((group, route_vertex_geo))
             positions_w_near_node_df = pd.concat(pool.starmap(get_close_node_parallel, trip_group_tuple_list))
             positions_w_near_node_dict[gtfs_group] = positions_w_near_node_df
+    pool.close()
+    pool.join()
     return positions_w_near_node_dict
 
 def unpack_near_node_column(positions_w_near_node_dict):
