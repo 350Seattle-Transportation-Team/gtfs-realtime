@@ -71,7 +71,9 @@ Please see the instructions below to set up your python environment and get star
 
 # Description of scripts/notebooks
 
-All Andrew's S3 data is available at `s3://realtime-buses/datasets/`. To copy both datasets to your computer, use `aws s3 cp s3://realtime-buses/datasets/ . --recursive`
+Note: the data is stored using AWS. If AWS is unfamiliar, scroll down to "Using Amazon Web Services to access Ben’s data" below, for a little tutorial.  
+
+All Andrew's S3 data is available at `s3://realtime-buses/datasets/`. To copy both datasets to your computer, use `aws s3 cp s3://realtime-buses/datasets/ . --recursive`  
 
 Additionally, notebooks 2 and 3 reference GTFS feeds that should be downloaded from https://transitfeeds.com/p/king-county-metro/73 and unzipped to `data/source/gtfs_YYYYMMDD` folders.
 
@@ -118,6 +120,7 @@ jupyter notebook
 On Windows, it should work to install everything with `conda`. Instead of `tables`, install `pytables` (this is needed to work with `.h5` files).
 
 ```shell
+#If you don't have Anaconda installed, install it from here. NOTE: if you don't check the box for adding Conda folders to your path, you will likely have trouble later.
 #Create a new conda environment named `realtime-buses` with Python version 3.6 (3.7 does not work) and the ipython kernel
 conda create --name realtime-buses python=3.6 ipykernel
 #Activate the new environment
@@ -136,5 +139,24 @@ Windows trouble shooting notes:
 1. If you followed the conda install's bad advice not to add conda to your path, you may have to add a bunch of stuff to your path (e.g. if you get an HTTP error involving ssl not found).  I (Alice) found that I had to run setx PATH "%path%";c:\Users\Alice\Anaconda3\;c:\Users\Alice\Anaconda3\scripts;c:\Users\Alice\Anaconda3\condabin.
 2. If you get a PackagesNotFound error for geopy:\
   ```conda config --append channels conda-forge```\
-  ```conda install geopy```
+  ```conda install geopy```\
+  
+**Using Amazon Web Services to access Ben’s data**
+If you don’t have an AWS account, sign up at https://aws.amazon.com/ \
+If you don’t have the AWS cli\
+install it from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html \
+At this point, aws commands in the cli return “Unable to locate credentials”\
+To fix this, you need to have an aws user, and credentials.\
+Create the user here,\
+And set up the credentials as described here: https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html, creating an aws user.  You will be asked for a user name and password.\
+This will generate an email, use the sign-in url in the email, and the user name and password you created in the previous step.\
+At this point you are in the console, it has a link to the Identity and Access Management (IAM) console.  Go there.\
+And get an access key id and access key as described here: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration \
+Double click on users \
+Check  box, then double click on a user (e.g. Admin), \
+Select the Security Credentials tab, and click Get Access Key\
+''' Now back in your dos command prompt, type \
+''' Aws configure
+And supply your credentials\
+Now just grab the data from https://github.com/350Seattle-Transportation-Team/gtfs-realtime (green download button) 
 
