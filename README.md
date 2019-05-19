@@ -145,18 +145,16 @@ Windows trouble shooting notes:
 If you don’t have an AWS account, sign up at https://aws.amazon.com/ \
 If you don’t have the AWS cli\
 install it from https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html \
-At this point, aws commands in the cli return “Unable to locate credentials”\
-To fix this, you need to have an aws user, and credentials.\
-Create the user here,\
-And set up the credentials as described here: https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html, creating an aws user.  You will be asked for a user name and password.\
+At this point, if aws commands in the cli return “Unable to locate credentials”, you need to get Amazon Identity and Access Management (IAM) credentials\
+And set up the credentials as described here: https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html, under "creating an aws use..."r.  You will be asked for a user name and password.\
 This will generate an email, use the sign-in url in the email, and the user name and password you created in the previous step.\
 At this point you are in the console, it has a link to the Identity and Access Management (IAM) console.  Go there.\
 And get an access key id and access key as described here: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration \
 Double click on users \
 Check  box, then double click on a user (e.g. Admin), \
 Select the Security Credentials tab, and click Get Access Key\
-''' Now back in your dos command prompt, type \
-''' Aws configure
+Now back in your dos command prompt, type \
+>  Aws configure
 And supply your credentials\
 Now just grab the data from https://github.com/350Seattle-Transportation-Team/gtfs-realtime (green download button) 
 
