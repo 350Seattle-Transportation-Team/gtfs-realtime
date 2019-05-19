@@ -43,7 +43,7 @@ If we plot the trips together you can see that the vehicle locations are not con
 
 Let's zoom into the route and see what other information we have:
 
-<img src="/images/position_zoom_in.png" width="300"/>
+<img src="/images/position_zoom_in.png" width="500"/>
 
 For each route, the gtfs gives us: 
 - route vertex points (all the lat/lon coordinates that make up a routes "shape")
@@ -55,7 +55,7 @@ From the image above, there are some important things to note:
 - the bus `positions` do not line up directly with either the route vertex points or the bus stops
 
 Our goal is to better understand how buses travels along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need change in location (we have that with multiple position records) and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
-<img src="/images/between_positions.png" width="300"/>
+<img src="/images/between_positions.png" width="800"/>
 
 In the picture, you'll see two vehicle positions along a route. The vehicle was at location 1 first at time, t1. Then the vehicle traveled along the route and arrived at location 2 at time, t2. We can find distance traveled in 2 ways:
 1. Naive approach - we can take the straight line distance between location 1 and location 2 (ignoring the actual route). This will work if observations are close together but if two observations that are far apart and the route is non-linear, this naive approach will have a lot of error.
