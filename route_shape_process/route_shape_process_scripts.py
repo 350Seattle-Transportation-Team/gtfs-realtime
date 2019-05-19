@@ -755,7 +755,7 @@ def get_most_used_shape_id_per_direction(full_trip_stop_schedule, route_id, dire
     '''
     '''
     full_df = pd.DataFrame()
-    for name, group in full_trip_stop_schedule[full_trip_stop_schedule['route_id'] == input_dict['route_id']].groupby(['start_gtfs_date','end_gtfs_date']):
+    for name, group in full_trip_stop_schedule[full_trip_stop_schedule['route_id'] == route_id].groupby(['start_gtfs_date','end_gtfs_date']):
         #logging.info(name)
         temp_df = group.groupby(['shape_id', 'direction_id','trip_headsign']).agg({'shape_id':'count'})\
                                 .rename(columns={'shape_id':'shape_id_count'})\
