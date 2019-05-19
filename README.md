@@ -30,13 +30,16 @@ entity {
 ```
 
 We can plot one set of vehicle positions along a route (in this case, route 7). In the gtfs, there's a file describing this particular vehicle's (vehicle_id) journey, or trip (trip_id) at a given time of day going a specific direction along route 7.
-![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_1.png "One trip's positions along 7 route")
+
+<img src="/images/trip_1.png" width="300"/>
 
 We can plot another trip here:
-![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_2.png "Another trip's positions along 7 route")
+
+<img src="/images/trip_2.png" width="300"/>
 
 If we plot the trips together you can see that the vehicle locations are not consistent one trip to another.
-![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_1_and_2.png "Trip positions together along 7 route")
+
+<img src="/images/trip_1_and_2.png" width="300"/>
 
 # Description of scripts/notebooks
 
