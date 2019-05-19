@@ -1,3 +1,43 @@
+# Background
+We have an AWS Lambda Function getting One Bus Away API responses for King County Metro.
+```
+agency = '1'  # this is the agency ID for King County Metro
+base_url = 'http://pugetsound.onebusaway.org/api/'
+endpoints = {'position': 'gtfs_realtime/vehicle-positions-for-agency/{agency}.pb',
+           'alert': 'gtfs_realtime/alerts-for-agency/{agency}.pb',
+           'update': 'gtfs_realtime/trip-updates-for-agency/{agency}.pb'}
+```
+
+We're focusing on the `position` files. If you call the One Bus Away API's position endpoint at any point in time, it will return vehicle locations (lat/lon) for buses travelling along their routes at that time:
+```
+entity {
+  id: "2"
+  vehicle {
+    trip {
+      trip_id: "34746616"
+      route_id: "100136"
+    }
+    position {
+      latitude: 47.657772
+      longitude: -122.14334
+    }
+    timestamp: 1528154042
+    vehicle {
+      id: "7222"
+    }
+  }
+}
+```
+
+We can plot one set of vehicle positions along a route (in this case, route 7). In the gtfs, there's a file describing this particular vehicle's (vehicle_id) journey, or trip (trip_id) at a given time of day going a specific direction along route 7.
+![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_1.png "One trip's positions along 7 route")
+
+We can plot another trip here:
+![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_2.png "Another trip's positions along 7 route")
+
+If we plot the trips together you can see that the vehicle locations are not consistent one trip to another.
+![alt text](https://github.com/350Seattle-Transportation-Team/gtfs-realtime/images/trip_1_and_2.png "Trip positions together along 7 route")
+
 # Description of scripts/notebooks
 
 All Andrew's S3 data is available at `s3://realtime-buses/datasets/`. To copy both datasets to your computer, use `aws s3 cp s3://realtime-buses/datasets/ . --recursive`
