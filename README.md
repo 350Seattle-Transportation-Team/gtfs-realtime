@@ -60,7 +60,7 @@ Our goal is to better understand how buses travel along their routes. One natura
 - and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
 <img src="/images/between_positions.png" width="800"/>
 
-In the picture, there are two vehicle positions along a route. The vehicle was at location 1 first at time, t1. Then the vehicle traveled along the route and arrived at location 2 at time, t2. We can find distance traveled in 2 ways:
+In the picture, there are two vehicle positions along a route. First, the vehicle was at location 1 at time = t1. The next vehicle observation was at location 2 and time = t2. We can find distance traveled in 2 ways:
 1. Naive approach - we can take the straight line distance between location 1 and location 2 (ignoring the actual route). This will work if observations are close together but if two observations that are far apart and the route is non-linear, this naive approach will have a lot of error.
 2. Route aware - we can find the nearest route shape vertex to the vehicle location. The gtfs provides the distance traveled between each route vertex so there is enough information to calculate the `distance traveled` by taking
 shape_distance_traveled<sub>loc2</sub>-shape_distance_traveled<sub>loc1</sub>
