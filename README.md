@@ -47,13 +47,13 @@ Let's zoom into the route and see what other information we have:
 <img src="/images/position_zoom_in.png" width="500"/>
 
 For each route, the gtfs gives us: 
-- route vertex points (all the lat/lon coordinates that make up a routes "shape")
+- route vertex points (all the lat/lon coordinates that make up a route's "shape")
 - and an indication whether the route vertex is associated with a bus stop
 
 From the image above, there are some important things to note:
 - route vertex points occur at every street intersection
 - if there's a bus stop, another route vertex point occurs at the same location along the centerline of the street
-- the bus `positions` do not line up directly with either the route vertex points or the bus stops
+- the bus `positions` or `vehicle locations` do not line up directly with either the route vertex points or the bus stops
 
 Our goal is to better understand how buses travel along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need change in location (we have that with multiple position records) and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
 <img src="/images/between_positions.png" width="800"/>
