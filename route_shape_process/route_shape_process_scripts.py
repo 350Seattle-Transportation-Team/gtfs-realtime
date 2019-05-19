@@ -319,6 +319,7 @@ def get_close_node(raw_loc, route_vertex_geo):
     we'll later use this node to update the graph attributes
     '''
     veh_pt = Point(raw_loc)
+    #distances from shapely are in degrees -- 0.001° =111 m
     route_vertex_geo['distance'] = route_vertex_geo.distance(veh_pt)
     route_vertex_geo_sorted = route_vertex_geo.sort_values(by=['distance'], axis=0, ascending=True)
     #filter for distance too far away happens later - keep all distances here
