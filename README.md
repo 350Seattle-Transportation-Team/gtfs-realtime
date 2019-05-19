@@ -41,6 +41,33 @@ If we plot the trips together you can see that the vehicle locations are not con
 
 <img src="/images/trip_1_and_2.png" width="300"/>
 
+Let's zoom into the route and see what other information we have:
+
+<img src="/images/position_zoom_in.png" width="300"/>
+
+For each route, the gtfs gives us: 
+- route vertex points (all the lat/lon coordinates that make up a routes "shape")
+- and an indication whether the route vertex is associated with a bus stop
+
+From the image above, there are some important things to note:
+- route vertex points occur at every street intersection
+- if there's a bus stop, another route vertex point occurs at the same location along the centerline of the street
+- the bus `positions` do not line up directly with either the route vertex points or the bus stops
+
+Our goal is to better understand how buses travels along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need change in location (we have that with multiple position records) and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
+<img src="/images/between_positions.png" width="300"/>
+
+In the picture, you'll see two vehicle positions along a route. The vehicle was at location 1 first at time, t1. Then the vehicle traveled along the route and arrived at location 2 at time, t2. We can find distance traveled in 2 ways:
+1. Naive approach - we can take the straight line distance between location 1 and location 2 (ignoring the actual route). This will work if observations are close together but if two observations that are far apart and the route is non-linear, this naive approach will have a lot of error.
+2. Route aware - we can find the nearest route shape vertex to the vehicle location. The gtfs gives us shape distance traveled between each route vertex so we can calculate the distance traveled by taking
+shape_distance_traveled<sub>loc2</sub>-shape_distance_traveled<sub>loc1</sub>
+
+Since bus riders are more familiar with distances and timing between stops, it's helpful to contextualize everything around bus stops. There are two ways we are doing this process:
+1. Find the nearest route vertex point to each vehicle location. If the nearest route vertex poitn is a bus stop, keep it. Otherwise, remove it from the dataset.F
+2. Find the nearest route vertex point to each vehicle location. Find the distance and time between route vertex points. Interpolate when the vehicle `would have been` at the bus stop in between route vertex points.
+
+Please see the instructions below to set up your python environment and get started with the code. 
+
 # Description of scripts/notebooks
 
 All Andrew's S3 data is available at `s3://realtime-buses/datasets/`. To copy both datasets to your computer, use `aws s3 cp s3://realtime-buses/datasets/ . --recursive`
