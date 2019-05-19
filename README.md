@@ -56,7 +56,7 @@ From the image above, there are some important things to note:
 - the bus `positions` or `vehicle locations` do not line up directly with either the route vertex points or the bus stops
 
 Our goal is to better understand how buses travel along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need:
-- change in location (we have that with multiple position records) 
+- change in time (we have timestameps for each vehicle location) 
 - and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
 <img src="/images/between_positions.png" width="800"/>
 
