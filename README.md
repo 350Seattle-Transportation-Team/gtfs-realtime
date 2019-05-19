@@ -154,7 +154,7 @@ Double click on users \
 Check  box, then double click on a user (e.g. Admin), \
 Select the Security Credentials tab, and click Get Access Key\
 Now back in your dos command prompt, type \
->  Aws configure\
+    Aws configure\
 And supply your credentials\
 Now just grab the data from https://github.com/350Seattle-Transportation-Team/gtfs-realtime (green download button) 
 
