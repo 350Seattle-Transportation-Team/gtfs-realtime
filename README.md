@@ -1,5 +1,5 @@
 # Background
-We have an AWS Lambda Function getting One Bus Away API responses for King County Metro.
+We have an AWS Lambda Function pulling One Bus Away API responses for King County Metro.
 ```
 agency = '1'  # this is the agency ID for King County Metro
 base_url = 'http://pugetsound.onebusaway.org/api/'
@@ -8,7 +8,7 @@ endpoints = {'position': 'gtfs_realtime/vehicle-positions-for-agency/{agency}.pb
            'update': 'gtfs_realtime/trip-updates-for-agency/{agency}.pb'}
 ```
 
-We're focusing on the `position` files. If you call the One Bus Away API's position endpoint at any point in time, it will return vehicle locations (lat/lon) for buses travelling along their routes at that time:
+We're focusing on the `position` files. If you call [Ping] the One Bus Away API's position endpoint at any point in time, it will return the last recorded vehicle location (lat/lon) for buses travelling along their routes at that time:
 ```
 entity {
   id: "2"
@@ -28,6 +28,7 @@ entity {
   }
 }
 ```
+*The time and distance between bus location records vary. We're pinging the One Bus Away API every minute.*
 
 We can plot one set of vehicle positions along a route (in this case, route 7). In the gtfs, there's a file describing this particular vehicle's (vehicle_id) journey, or trip (trip_id) at a given time of day going a specific direction along route 7.
 
@@ -54,7 +55,7 @@ From the image above, there are some important things to note:
 - if there's a bus stop, another route vertex point occurs at the same location along the centerline of the street
 - the bus `positions` do not line up directly with either the route vertex points or the bus stops
 
-Our goal is to better understand how buses travels along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need change in location (we have that with multiple position records) and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
+Our goal is to better understand how buses travel along their routes. One natural question is "How fast is the bus moving along the route?" To get speed, we need change in location (we have that with multiple position records) and distance traveled. To think about getting "distance traveled", it's helpful to look at the picture below:
 <img src="/images/between_positions.png" width="800"/>
 
 In the picture, you'll see two vehicle positions along a route. The vehicle was at location 1 first at time, t1. Then the vehicle traveled along the route and arrived at location 2 at time, t2. We can find distance traveled in 2 ways:
@@ -63,7 +64,7 @@ In the picture, you'll see two vehicle positions along a route. The vehicle was 
 shape_distance_traveled<sub>loc2</sub>-shape_distance_traveled<sub>loc1</sub>
 
 Since bus riders are more familiar with distances and timing between stops, it's helpful to contextualize everything around bus stops. There are two ways we are doing this process:
-1. Find the nearest route vertex point to each vehicle location. If the nearest route vertex poitn is a bus stop, keep it. Otherwise, remove it from the dataset.F
+1. Find the nearest route vertex point to each vehicle location. If the nearest route vertex point is a bus stop, keep that row in the dataset. Otherwise, remove the observation (row) from the dataset.
 2. Find the nearest route vertex point to each vehicle location. Find the distance and time between route vertex points. Interpolate when the vehicle `would have been` at the bus stop in between route vertex points.
 
 Please see the instructions below to set up your python environment and get started with the code. 
