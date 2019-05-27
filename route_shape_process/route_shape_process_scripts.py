@@ -665,11 +665,11 @@ def plot_distance_vs_start_time(ax,
     
     
     special_hour_trips = special_hour_trips.groupby(['month_day_trip_veh','shape_dist_traveled'])\
-                                .agg({'time_from_scheduled_start':'max'})\
+                                .agg({'actual_time_from_scheduled_start':'max'})\
                                 .reset_index()
             
     special_hour_trips_avg = special_hour_trips.groupby(['shape_dist_traveled'])\
-                            .agg({'time_from_scheduled_start':'mean'})\
+                            .agg({'actual_time_from_scheduled_start':'mean'})\
                             .reset_index()
             
     special_hour_trips_95 = special_hour_trips.groupby(['shape_dist_traveled'])\
@@ -684,22 +684,22 @@ def plot_distance_vs_start_time(ax,
     #            special_hour_trips['shape_dist_traveled'].values, 
     #           c='black',
     #           alpha=0.25)
-    ax.plot(special_hour_trips_avg['time_from_scheduled_start'].values,
+    ax.plot(special_hour_trips_avg['actual_time_from_scheduled_start'].values,
                 special_hour_trips_avg['shape_dist_traveled'].values, 
                 c=color,
             alpha=0.6,
             label='average_{}'.format(label_suffix))
-    ax.plot(special_hour_trips_95['time_from_scheduled_start'].values,
+    ax.plot(special_hour_trips_95['actual_time_from_scheduled_start'].values,
                 special_hour_trips_95['shape_dist_traveled'].values, 
                 c=color,
             alpha=0.2,
             label='quantile .95_{}'.format(label_suffix))
-    ax.plot(special_hour_trips_05['time_from_scheduled_start'].values,
+    ax.plot(special_hour_trips_05['actual_time_from_scheduled_start'].values,
                 special_hour_trips_05['shape_dist_traveled'].values, 
                 c=color,
             alpha=0.2,
             label='quantile .05_{}'.format(label_suffix))
-    ax.set_xlabel('time_from_scheduled_start',fontsize=14)
+    ax.set_xlabel('actual_time_from_scheduled_start',fontsize=14)
     ax.set_ylabel('distance_traveled_on_route', fontsize=14)
     
     ax.legend()
