@@ -1118,11 +1118,11 @@ if __name__ == "__main__":
                 position_w_node_schedule = join_tripstart(distance_time_list_df, full_trip_stop_schedule)
                 
 
-                csv_name = 'transformed/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
+                csv_name = 'transformed/route_{}_{}_shape_{}_node_trips_w_nearest_2018-08-15_2018-12-11.csv'.format(
                                                 route_of_interest,"".join(trip_headsign.replace("/","-").split(" ")) ,input_dict['shape_id'])
                 s3_prefix = "route_shape_files/"
                 logging.info("sending file to s3")
-                send_output_df_to_s3(unpacked_positions_full, s3_prefix,  csv_name)
+                send_output_df_to_s3(position_w_node_schedule, s3_prefix,  csv_name)
                 
             get_send_route_progress_file(route_of_interest, 'done')
     send_log_to_s3(log_filename)
