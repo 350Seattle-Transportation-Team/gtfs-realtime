@@ -770,9 +770,8 @@ def get_distance_time_parallel(df):
     df.loc[:,'shape_dist_diff'] = df.loc[:,'shape_dist_traveled'].diff(1)
     df.loc[:,'time_delta'] = df['time_pct'].diff(1)
     
-    df['shape_pt_seq_tuple'] = list(zip(df.shift(1).apply(lambda x: 9999 if math.isnan(x['shape_pt_sequence']) 
-                                                                        else int(x['shape_pt_sequence']), 
-                                                                        axis=1).values,
+    df['shape_pt_seq_tuple'] = list(zip(df['shape_pt_sequence'].shift(1).apply(lambda x: 9999 if (np.isnan(x)) 
+                                                                        else int(x)).values,
                                                 df.apply(lambda x: x['shape_pt_sequence'], axis=1).values))
     
     df.dropna(axis=0, how='any', subset=['time_delta','shape_dist_diff'], inplace=True)
