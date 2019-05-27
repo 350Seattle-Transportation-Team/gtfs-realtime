@@ -723,7 +723,7 @@ def get_close_node_parallel(df, route_vertex_geo):
 def get_close_node_process(df, route_vertex_geo):
     n_pools = multiprocessing.cpu_count() - 1
     pool = multiprocessing.Pool(n_pools)
-    num_splits = 4
+    num_splits = n_pools
     df_list = np.array_split(df, num_splits)
     positions_w_near_node_df = pd.concat(pool.map(partial(get_close_node_parallel, 
                                                           route_vertex_geo=route_vertex_geo
