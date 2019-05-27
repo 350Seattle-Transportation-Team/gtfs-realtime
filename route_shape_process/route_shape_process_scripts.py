@@ -748,8 +748,8 @@ def unpack_near_node_column(positions_w_near_node_dict):
 def datetime_transform_df(df):
     '''
     '''
-    df['time_pct'] = df['time_pct'].apply(pd.to_datetime)
-    df['time_pct'] = df['time_pct'].dt.tz_localize('UTC')
+    df['time_pct'] = df['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
+    #df['time_pct'] = df['time_pct'].dt.tz_localize('UTC')
     df['time_pct']= df['time_pct'].dt.tz_convert('US/Pacific')
     
     return df
