@@ -14,6 +14,8 @@ import boto3
 import logging
 import time
 import io
+from functools import partial
+import math
 
 #create a log file - to store details about each step
 named_tuple = time.localtime() # get struct_time
@@ -155,7 +157,6 @@ def parallelize_dataframe(df, func, func_list):
     full_data = pd.concat(pool.map(func, func_list))
     pool.close()
     pool.join()
-    #return data
 
 ##################################################################################
 #    function to return count of shape_ids associated with a given route
@@ -236,6 +237,12 @@ def make_geopandas_shape_df(gtfs_shapes, shape_id):
     route_vertex_geo <-- geopandas version of a particular schedule shapes.txt geometry = route vertex points
     '''
     one_shape_df = gtfs_shapes[gtfs_shapes['shape_id'] == shape_id].copy()
+    if 'start_gtfs_date' in one_shape_df.columns.tolist():
+        one_shape_df.drop('start_gtfs_date',axis=1, inplace=True)
+
+    if 'end_gtfs_date' in one_shape_df.columns.tolist():
+        one_shape_df.drop('end_gtfs_date', axis=1,inplace=True)
+    one_shape_df.drop_duplicates(['shape_pt_sequence'], keep='first', inplace=True)
     crs = {'init':'epsg:4326'}
     shape_geometry = [Point(xy) for xy in zip(one_shape_df.shape_pt_lon, one_shape_df.shape_pt_lat)]
     route_vertex_geo = GeoDataFrame(one_shape_df, crs=crs, geometry=shape_geometry)
@@ -303,6 +310,32 @@ def get_edge_list(loc1, loc2, G):
 #    find closest node to an observed raw bus lat/lon
 #   alternatively could use shapely.ops nearest_points
 ##################################################################################
+
+def get_nearest_route_node_sindex(row, route_vertex_geo):
+    '''
+    INPUT
+    -----------
+    row = a df row, each row is 1 vehicle observation
+    route_vertex_geo = geodataframe from route shape
+    OUTPUT
+    -------
+    shape_pt_sequence = the pt sequence along the route for the nearest node
+    to the vehicle location
+    ---------
+    given a raw GPS coordinate from one bus away, get the closest
+    bus route shape vertex node
+    since we're using a spatial index, make sure the multiprocess chunks are large
+    there's a cost to creating the spatial index but there's also a big benefit
+    over a lot of observations vs. shapely nearest_point
+    '''
+    s_index = route_vertex_geo.sindex
+    veh_coords = (row['vehicle_long'],row['vehicle_lat'])
+    nearest_idx = list(s_index.nearest(veh_coords))
+    if len(nearest_idx) == 0:
+        shape_pt_sequence = 9999
+    else:
+        shape_pt_sequence = route_vertex_geo.iloc[nearest_idx]['shape_pt_sequence'].values[0]
+    return shape_pt_sequence  
 
 def get_close_node(raw_loc, route_vertex_geo):
     '''
@@ -472,12 +505,16 @@ def join_positions_with_gtfs_trips(positions, gtfs_trips, start_gtfs_date, end_g
     start_gtfs_date = YYYY-MM-DD e.g. '2018-01-01'
     end_gtfs_date = YYYY-MM-DD e.g. '2018-01-17'
     '''
-    positions_w_trips = positions.loc[start_gtfs_date:end_gtfs_date].merge(gtfs_trips[['route_id',
-                                                                                      'trip_id',
-                                                                                     'direction_id',
-                                                                                     'shape_id']],
-                                                                  how='left',
-                                                                 on=['route_id','trip_id'])
+    if positions.loc[start_gtfs_date:end_gtfs_date].empty:
+        positions_w_trips = positions.loc[start_gtfs_date:end_gtfs_date]
+    else:
+        positions_w_trips = positions.loc[start_gtfs_date:end_gtfs_date].merge(gtfs_trips[['route_id',
+                                                                                        'trip_id',
+                                                                                        'direction_id',
+                                                                                        'shape_id']],
+                                                                    how='left',
+                                                                    on=['route_id','trip_id'])
+        positions_w_trips.loc[:,'month_day_trip_veh'] = positions_w_trips.apply(get_unique_trip_id, axis=1)
 
     return positions_w_trips
 
@@ -674,31 +711,30 @@ def get_point_coords(row, route_vertex_geo):
     else:
         return get_close_node(row['geometry'].coords[:][0], route_vertex_geo)
 
-def get_close_node_parallel(df_group, route_vertex_geo):
+def get_close_node_parallel(df, route_vertex_geo):
     '''
     '''
-    df_group['close_node_tuple'] = df_group.apply(get_point_coords, route_vertex_geo=route_vertex_geo, axis=1).copy()
-    return df_group
+    df['shape_pt_sequence'] = df.apply(lambda x: get_nearest_route_node_sindex(x, 
+                                                                        route_vertex_geo
+                                                                        ), 
+                                       axis=1).copy()
+    return df
 
-def full_step_process():
+def get_close_node_process(df, route_vertex_geo):
     n_pools = multiprocessing.cpu_count() - 1
     pool = multiprocessing.Pool(n_pools)
-    positions_w_near_node_dict = {}
-    for gtfs_group in positions_w_trips.keys():
-        logging.info("starting {}".format(gtfs_group))
-        if positions_w_trips_geo_dict[gtfs_group].empty:
-            pass
-        else:
-            grouped = positions_w_trips_geo_dict[gtfs_group].groupby('month_day_trip_veh')
-            route_vertex_geo = route_vertex_geo_dict[gtfs_group]
-            trip_group_tuple_list = []
-            for name, group in grouped:
-                trip_group_tuple_list.append((group, route_vertex_geo))
-            positions_w_near_node_df = pd.concat(pool.starmap(get_close_node_parallel, trip_group_tuple_list))
-            positions_w_near_node_dict[gtfs_group] = positions_w_near_node_df
+    num_splits = 4
+    df_list = np.array_split(df, num_splits)
+    positions_w_near_node_df = pd.concat(pool.map(partial(get_close_node_parallel, 
+                                                          route_vertex_geo=route_vertex_geo
+                                                          ),
+                                                  df_list))
     pool.close()
     pool.join()
-    return positions_w_near_node_dict
+    positions_w_near_node_df = positions_w_near_node_df.merge(
+                            route_vertex_geo[['shape_pt_sequence','shape_dist_traveled','shape_pt_lat','shape_pt_lon']],
+                        how='left', on='shape_pt_sequence')
+    return positions_w_near_node_df
 
 def unpack_near_node_column(positions_w_near_node_dict):
     for gtfs_group in positions_w_near_node_dict.keys():
@@ -712,40 +748,89 @@ def unpack_near_node_column(positions_w_near_node_dict):
 def datetime_transform_df(df):
     '''
     '''
-    df['time_pct'] = df['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
-    df.set_index('time_pct', inplace=True)
-    df.sort_index(inplace=True)
-    df.index=pd.DatetimeIndex(df.index).tz_localize('UTC').tz_convert('US/Pacific')
+    df['time_pct'] = df['time_pct'].apply(pd.to_datetime)
+    df['time_pct'] = df['time_pct'].dt.tz_localize('UTC')
+    df['time_pct']= df['time_pct'].dt.tz_convert('US/Pacific')
     
     return df
 
-def join_tripstart_unpacked(unpacked_positions_w_near_node_df, trip_stops_w_name_route):
+def get_travel_rate(row):
+    ##shape dist traveled is in feet, time in seconds travel_rate_update mph
+    if row['total_seconds_delta'] == 0:
+        travel_rate = 0
+    else:
+        travel_rate = (row['shape_dist_diff']/row['total_seconds_delta'])*(5280)*(1/(60*60))
+    return travel_rate
+
+def get_distance_time_parallel(df):
+    '''
+    '''
+    
+    df.sort_values('time_pct',inplace=True)
+    df.loc[:,'shape_dist_diff'] = df.loc[:,'shape_dist_traveled'].diff(1)
+    df.loc[:,'time_delta'] = df['time_pct'].diff(1)
+    
+    df['shape_pt_seq_tuple'] = list(zip(df.shift(1).apply(lambda x: 9999 if math.isnan(x['shape_pt_sequence']) 
+                                                                        else int(x['shape_pt_sequence']), 
+                                                                        axis=1).values,
+                                                df.apply(lambda x: x['shape_pt_sequence'], axis=1).values))
+    
+    df.dropna(axis=0, how='any', subset=['time_delta','shape_dist_diff'], inplace=True)
+    
+    df.loc[:,'total_seconds_delta'] = df['time_delta'].apply(lambda x: x.total_seconds())
+    
+    if df.empty:
+        pass
+    else:
+        df.loc[:,'travel_rate_mph'] = df.apply(get_travel_rate, axis=1)
+
+    return df
+
+def get_distance_time_diffs(unpacked_positions_full):
+    n_pools = multiprocessing.cpu_count() - 1
+    pool = multiprocessing.Pool(n_pools)
+    distance_time_list = []
+    grouped =  unpacked_positions_full.groupby('month_day_trip_veh')
+    for name, group in grouped:
+        distance_time_list.append(group)
+    distance_time_list_df = pd.concat(pool.map(get_distance_time_parallel, distance_time_list))
+    pool.close()
+    pool.join()
+    return distance_time_list_df
+
+def join_tripstart(distance_time_list_df, full_trip_stop_schedule):
     '''
     '''
     normal_hours = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    sched_col_to_keep = ['trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence',
+                        'stop_name','stop_lat', 'stop_lon', 'trip_start_time',
+        'route_id', 'trip_headsign', 'shape_id','route_short_name', 'route_desc']
     #drop hours near '0' because the hour comparison gets messed up - gtfs has hours > 23 :(
-    unpacked_positions_w_near_node_df = unpacked_positions_w_near_node_df[unpacked_positions_w_near_node_df.hour.isin(normal_hours)]
-    
-    if 'trip_stops_w_name_route' in trip_stops_w_name_route.columns:
-        trip_stops_w_name_route.drop('trip_stops_w_name_route', axis=1, inplace=True)
-    position_w_node_schedule = unpacked_positions_w_near_node_df.merge(trip_stops_w_name_route,how='left',
-                                                    left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
-                                                    right_on=['trip_id','route_id','shape_id','stop_sequence'])
-    
-    position_w_node_schedule = position_w_node_schedule[position_w_node_schedule['stop_name'].notnull()]
-    
-    position_w_node_schedule.loc[:,'time_pct'] = position_w_node_schedule['time_pct'].apply(lambda x: pd.to_datetime(x, utc=True))
-
-    position_w_node_schedule.loc[:,'time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
-        
+    full_trip_stop_schedule = full_trip_stop_schedule[sched_col_to_keep]
+    distance_time_list_df.reset_index(inplace=True)
+    positions_w_near_node_df = distance_time_list_df[distance_time_list_df.hour.isin(normal_hours)]
+    position_w_node_schedule = positions_w_near_node_df.merge(full_trip_stop_schedule,how='left',
+                                                        left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
+                                                        right_on=['trip_id','route_id','shape_id','stop_sequence'])
     position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
+    position_w_node_schedule['time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
 
     position_w_node_schedule['trip_start_time'] = position_w_node_schedule['trip_start_time'].apply(pd.to_datetime)
         
-    #take the time at every stop and subtract the scheduled start time
-    position_w_node_schedule['time_from_scheduled_start'] = (((position_w_node_schedule.loc[:,'time_pct'].dt.hour)*60+
-                                                    position_w_node_schedule.loc[:,'time_pct'].dt.minute+
-                                                    (position_w_node_schedule.loc[:,'time_pct'].dt.second)/60) - 
+    #take the time at every node and subtract the scheduled start time
+    position_w_node_schedule['actual_time_from_scheduled_start'] = (((position_w_node_schedule['time_pct'].dt.hour)*60+
+                                                    position_w_node_schedule['time_pct'].dt.minute+
+                                                    (position_w_node_schedule['time_pct'].dt.second)/60) - 
+                                                    ((position_w_node_schedule.loc[:,'trip_start_time'].dt.hour)*60+
+                                                    position_w_node_schedule.loc[:,'trip_start_time'].dt.minute+
+                                                    (position_w_node_schedule.loc[:,'trip_start_time'].dt.second)/60))
+    
+    position_w_node_schedule['arrival_time'] = position_w_node_schedule['arrival_time'].apply(pd.to_datetime)
+        
+    #take the scheduled time at every stop and subtract the scheduled start time
+    position_w_node_schedule['scheduled_time_from_scheduled_start'] = (((position_w_node_schedule['arrival_time'].dt.hour)*60+
+                                                    position_w_node_schedule['arrival_time'].dt.minute+
+                                                    (position_w_node_schedule['arrival_time'].dt.second)/60) - 
                                                     ((position_w_node_schedule.loc[:,'trip_start_time'].dt.hour)*60+
                                                     position_w_node_schedule.loc[:,'trip_start_time'].dt.minute+
                                                     (position_w_node_schedule.loc[:,'trip_start_time'].dt.second)/60))
@@ -951,10 +1036,13 @@ if __name__ == "__main__":
     "gtfs_trips_2018-08-15_2018-12-12.csv"
     "gtfs_2018-08-15_2018-12-12.csv"
     usage route_shape_process_scripts.py <route_short_name>
+    -- if you put "all" instead of <route_short_name> the process will run
+    for all routes 
+    NOTE - you may have to change the progress csv file location
     '''
 
-    #logging.info("grabbing arguments")
-    #route_of_interest = sys.argv[1]
+    logging.info("grabbing arguments")
+    route_of_interest_input = sys.argv[1]
 
     logging.info("grabbing csv")
     full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv",low_memory=False)
@@ -965,14 +1053,16 @@ if __name__ == "__main__":
     route_name_to_id_dict = dict(zip(full_routes_gtfs.route_short_name.tolist(),
                                 full_routes_gtfs.route_id.tolist()))
 
-    #data = {'route_name':list(route_name_to_id_dict.keys()), 'status':len(route_name_to_id_dict.keys())*['not_started']}
-    #route_status = pd.DataFrame.from_dict(data)
-    s3_prefix = "progress/"
-    csv_name = "route_progress_status.csv"
-    route_status_file_key = s3_prefix+csv_name
-    route_status_df = get_csv_s3_make_df(route_status_file_key)
+    if route_of_interest_input == 'all':
 
-    remaining_routes = route_status_df[route_status_df['status']=='not_started']['route_name'].unique()
+        s3_prefix = "progress/"
+        csv_name = "route_progress_status.csv"
+        route_status_file_key = s3_prefix+csv_name
+        route_status_df = get_csv_s3_make_df(route_status_file_key)
+
+        remaining_routes = route_status_df[route_status_df['status']=='not_started']['route_name'].unique()
+    else:
+        remaining_routes = route_of_interest_input
     month_list = ['201809', '201810', '201811']
     all_route_positions = get_positions_months(month_list)
     #
@@ -982,16 +1072,16 @@ if __name__ == "__main__":
         input_dict = {'route_id':route_of_interest_id}
 
         logging.info("running get_positions_months_route_id")
-        full_route_positions = all_route_positions[all_route_positions['route_id']==route_of_interest_id].copy()
+        single_route_positions = all_route_positions[all_route_positions['route_id']==route_of_interest_id].copy()
         
-        if full_route_positions.empty:
+        if single_route_positions.empty:
             logging.info("skipping route name {} no positions".format(route_of_interest))
             get_send_route_progress_file(route_of_interest, 'no_positions')
             pass
 
         else:
-            full_route_positions = convert_index_to_pct(full_route_positions)
-            full_route_positions = add_time_index_columns(full_route_positions)
+            single_route_positions = convert_index_to_pct(single_route_positions)
+            single_route_positions = add_time_index_columns(single_route_positions)
 
             direction_id_list = [0,1]
             for direction in direction_id_list:
@@ -999,58 +1089,41 @@ if __name__ == "__main__":
                 input_dict['shape_id'] = shape_id
 
                 logging.info("starting process for direction = {}, shape_id = {}".format(direction, shape_id))
+                logging.info("make one route_vertex_geo from shape_id {}".format(shape_id))
+                route_vertex_geo = make_geopandas_shape_df(full_shapes_gtfs, input_dict['shape_id'])
 
-                route_vertex_geo_dict = {}
-                G_dict = {}
-                logging.info("running get_route_vertex_graph")
-                for name, group in full_shapes_gtfs.groupby(
-                                ['start_gtfs_date','end_gtfs_date']):
-                    #logging.info(name)
-                    route_vertex_geo_dict[name], G_dict[name] = get_route_vertex_graph(group, 
-                                                                    input_dict['shape_id'])
                 positions_w_trips = {}
-                logging.info("running join_positions_with_gtfs_trips")
                 for name, group in full_trips_gtfs.groupby(['start_gtfs_date','end_gtfs_date']):
-                    #logging.info(name)
-                    positions_w_trips[name] = join_positions_with_gtfs_trips(full_route_positions, 
-                                                                            group, 
-                                                                            name[0], 
-                                                                            name[1])
-                unique_trip_list_dict = {}
-                positions_w_trips_geo_dict = {}
-                logging.info("running positions_w_trips_geo_dict")
-                for gtfs_groups in positions_w_trips.keys():
-                    #logging.info(gtfs_groups)
-                    unique_trip_list_dict[gtfs_groups], positions_w_trips_geo_dict[gtfs_groups] = get_trip_from_shape_id(input_dict['shape_id'], 
-                                                                                                                        positions_w_trips[gtfs_groups])
-                positions_w_near_node_dict = full_step_process()
-
-                logging.info("running unpack_near_node_column")
-                unpacked_positions_w_near_node_dict = unpack_near_node_column(positions_w_near_node_dict)
-
-                logging.info("running unpacked_positions_w_near_node_dict")
-                for idx, dict_group in enumerate(unpacked_positions_w_near_node_dict.keys()):
-                    #logging.info(dict_group)
-                    if idx == 0:
-                        unpacked_positions_full = unpacked_positions_w_near_node_dict[dict_group].copy()
+                    #print(name)
+                    positions_w_trips[name] = join_positions_with_gtfs_trips(single_route_positions, group, name[0], name[1])
+                for idx, dict_group in enumerate(positions_w_trips.keys()):
+                    #print(dict_group)
+                    if positions_w_trips[dict_group].empty:
+                        pass
                     else:
-                        unpacked_positions_full = unpacked_positions_full.append(unpacked_positions_w_near_node_dict[dict_group])
-                csv_name = 'raw/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
+                        if idx == 0:
+                            unpacked_positions_full = positions_w_trips[dict_group].copy()
+                        else:
+                            unpacked_positions_full = unpacked_positions_full.append(positions_w_trips[dict_group])
+                
+                unpacked_positions_one_shape = unpacked_positions_full[unpacked_positions_full['shape_id']==input_dict['shape_id']]
+                logging.info("getting close nodes")
+                positions_w_near_node_df = get_close_node_process(unpacked_positions_one_shape, route_vertex_geo)
+                logging.info("datetime transform")
+                positions_w_near_node_datetime = datetime_transform_df(positions_w_near_node_df)
+
+                logging.info("create time diffs")
+                distance_time_list_df = get_distance_time_diffs(positions_w_near_node_datetime)
+
+                logging.info("join with gtfs schedule on shape_pt_sequence & calculate times from trip_start_time")
+                position_w_node_schedule = join_tripstart(distance_time_list_df, full_trip_stop_schedule)
+                
+
+                csv_name = 'transformed/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
                                                 route_of_interest,"".join(trip_headsign.replace("/","-").split(" ")) ,input_dict['shape_id'])
                 s3_prefix = "route_shape_files/"
+                logging.info("sending file to s3")
                 send_output_df_to_s3(unpacked_positions_full, s3_prefix,  csv_name)
-                #unpacked_positions_full.to_csv('transformed/route_{}_{}_shape_{}_raw_w_nearest_2018-08-15_2018-12-11.csv'.format(
-                #                                route_of_interest,"".join(trip_headsign.split(" ")) ,input_dict['shape_id']), index=False)
-                logging.info("running join_tripstart_unpacked")
-                unpacked_positions_full_w_start = join_tripstart_unpacked(unpacked_positions_full, 
-                                                                        full_trip_stop_schedule)
-
-                csv_name = 'stopsonly/route_{}_{}_shape_{}_stopsonly_2018-08-15_2018-12-11.csv'.format(
-                                                route_of_interest,"".join(trip_headsign.split(" ")) ,input_dict['shape_id'])
-                s3_prefix = "route_shape_files/"
-                send_output_df_to_s3(unpacked_positions_full_w_start, s3_prefix, csv_name)
-
-                #unpacked_positions_full_w_start.to_csv('transformed/route_{}_{}_shape_{}_stopsonly_2018-08-15_2018-12-11.csv'.format(
-                #                                route_of_interest,"".join(trip_headsign.split(" ")), input_dict['shape_id']), index=False)
+                
             get_send_route_progress_file(route_of_interest, 'done')
     send_log_to_s3(log_filename)
