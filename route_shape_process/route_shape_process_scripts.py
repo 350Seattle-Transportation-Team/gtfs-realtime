@@ -811,7 +811,7 @@ def join_tripstart(distance_time_list_df, full_trip_stop_schedule):
     position_w_node_schedule = positions_w_near_node_df.merge(full_trip_stop_schedule,how='left',
                                                         left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
                                                         right_on=['trip_id','route_id','shape_id','stop_sequence'])
-    position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
+    position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence','shape_pt_seq_tuple'], keep='last', inplace=True)
     position_w_node_schedule['time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
 
     position_w_node_schedule['trip_start_time'] = position_w_node_schedule['trip_start_time'].apply(pd.to_datetime)
