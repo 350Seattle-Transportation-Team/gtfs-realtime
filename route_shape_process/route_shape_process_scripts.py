@@ -1003,6 +1003,24 @@ def update_edges(vehicle_geo, route_vertex_geo, G,
                     error_counter += 1
     return full_edge_df
 
+def calc_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+    return meters
+    Note this is an approximation based on great circle distance:
+    https://en.wikipedia.org/wiki/Great-circle_distance
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    c = 2 * math.asin(math.sqrt(a))
+    km = (6371 * c)
+    return km*1000
+
 def send_output_df_to_s3(df, s3_prefix, csv_name):
     '''
     '''
