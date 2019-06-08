@@ -760,7 +760,7 @@ def get_travel_rate(row):
     else:
         miles_trav = row['shape_dist_diff']/5280 #5,280 feet / mile
         time_in_hours = row['total_seconds_delta']/(60*60) # 60 sec/min, 60 min/hour
-        travel_rate = miles_trav/time_in_hours`
+        travel_rate = miles_trav/time_in_hours
     return travel_rate
 
 def get_distance_time_parallel(df):
