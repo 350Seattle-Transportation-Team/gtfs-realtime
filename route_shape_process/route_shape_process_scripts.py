@@ -715,9 +715,8 @@ def get_close_node_parallel(df, route_vertex_geo):
     '''
     '''
     df['shape_pt_sequence'] = df.apply(lambda x: get_nearest_route_node_sindex(x, 
-                                                                        route_vertex_geo
-                                                                        ), 
-                                       axis=1).copy()
+                                                                        route_vertex_geo), 
+                                        axis=1).copy()
     return df
 
 def get_close_node_process(df, route_vertex_geo):
@@ -759,7 +758,9 @@ def get_travel_rate(row):
     if row['total_seconds_delta'] == 0:
         travel_rate = 0
     else:
-        travel_rate = (row['shape_dist_diff']/row['total_seconds_delta'])*(5280)*(1/(60*60))
+        miles_trav = row['shape_dist_diff']/5280 #5,280 feet / mile
+        time_in_hours = row['total_seconds_delta']/(60*60) # 60 sec/min, 60 min/hour
+        travel_rate = miles_trav/time_in_hours`
     return travel_rate
 
 def get_distance_time_parallel(df):
