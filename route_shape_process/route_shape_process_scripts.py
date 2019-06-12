@@ -266,7 +266,8 @@ def get_close_node_parallel(df, route_vertex_geo):
     return df
 
 def get_close_node_process(df, route_vertex_geo):
-    n_pools = multiprocessing.cpu_count() - 1
+    #n_pools = multiprocessing.cpu_count() - 1
+    n_pools = 2
     pool = multiprocessing.Pool(n_pools)
     num_splits = n_pools
     df_list = np.array_split(df, num_splits)
@@ -281,12 +282,12 @@ def get_close_node_process(df, route_vertex_geo):
                         how='left', on='shape_pt_sequence')
     return positions_w_near_node_df
 
-def join_tripstart(distance_time_list_df, full_trip_stop_schedule):
+def join_tripstart(distance_time_list_df, full_trip_stop_schedule, trip_id_with_starttime):
     '''
     '''
     normal_hours = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     sched_col_to_keep = ['trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence',
-                        'stop_name','stop_lat', 'stop_lon', 'trip_start_time',
+                        'stop_name','stop_lat', 'stop_lon', 
         'route_id', 'trip_headsign', 'shape_id','route_short_name', 'route_desc']
     #drop hours near '0' because the hour comparison gets messed up - gtfs has hours > 23 :(
     full_trip_stop_schedule = full_trip_stop_schedule[sched_col_to_keep]
@@ -297,6 +298,8 @@ def join_tripstart(distance_time_list_df, full_trip_stop_schedule):
                                                         right_on=['trip_id','route_id','shape_id','stop_sequence'])
     position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence','shape_pt_seq_tuple'], keep='last', inplace=True)
     position_w_node_schedule['time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
+
+    position_w_node_schedule = position_w_node_schedule.merge(trip_id_with_starttime, how='left', on='trip_id')
 
     position_w_node_schedule['trip_start_time'] = position_w_node_schedule['trip_start_time'].apply(pd.to_datetime)
         
@@ -349,6 +352,7 @@ if __name__ == "__main__":
     "gtfs_trips_2018-08-15_2018-12-12.csv"
     "gtfs_2018-08-15_2018-12-12.csv"
     usage route_shape_process_scripts.py <route_short_name>
+    <route_short_name> can be a list of single route [15] or [1,18,E Line]
     -- if you put "all" instead of <route_short_name> the process will run
     for all routes 
     NOTE - you may have to change the progress csv file location
@@ -357,11 +361,17 @@ if __name__ == "__main__":
     logging.info("grabbing arguments")
     route_of_interest_input = sys.argv[1]
 
+    route_of_interest_input = route_of_interest_input.strip("[]").split(",")
+
     logging.info("grabbing csv")
     full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv",low_memory=False)
     full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv",low_memory=False)
     full_trips_gtfs = pd.read_csv("input_gtfs/gtfs_trips_2018-08-15_2018-12-12.csv",low_memory=False)
     full_trip_stop_schedule = pd.read_csv("input_gtfs/gtfs_2018-08-15_2018-12-12.csv",low_memory=False)
+
+    tripid_w_starttime = full_trip_stop_schedule.groupby('trip_id')\
+                        .agg({'trip_start_time':'min'})\
+                        .reset_index()
 
 
     #cheap and dirty way to make the route_name to id dictionary
@@ -429,10 +439,12 @@ if __name__ == "__main__":
                 positions_w_near_node_datetime = datetime_transform_df(positions_w_near_node_df)
 
                 logging.info("join with gtfs schedule on shape_pt_sequence & calculate times from trip_start_time")
-                position_w_node_schedule = join_tripstart(positions_w_near_node_datetime, full_trip_stop_schedule)
+                position_w_node_schedule = join_tripstart(positions_w_near_node_datetime, 
+                                                            full_trip_stop_schedule, 
+                                                            tripid_w_starttime)
 
                 #it's helpful to have this distance for debugging
-                position_w_node_schedule['distance_btw_veh_and_shape'] = unpacked_positions_full\
+                position_w_node_schedule['distance_btw_veh_and_shape'] = position_w_node_schedule\
                                                                 .apply(lambda x: calc_distance(x['vehicle_lat'],
                                                                 x['vehicle_long'], 
                                                                 x['shape_pt_lat'],
