@@ -16,6 +16,8 @@ import time
 import io
 from functools import partial
 import math
+from os import listdir
+from os.path import isfile, join
 
 #create a log file - to store details about each step
 named_tuple = time.localtime() # get struct_time
@@ -80,18 +82,19 @@ def get_send_route_progress_file(route_name, status):
     route_status.reset_index(inplace=True)
     send_output_df_to_s3(route_status, s3_prefix, csv_name)
 
-def get_positions_months(month_list):
+def get_positions_months(month_list,position_folder_location="input_position_files/"):
     '''
     month_list = ['201809', '201810', '201811'] need to point to
     the right folder holding your h5 files
     '''
+
     for i, position_date in enumerate(month_list):
         if i == 0:
-            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date),low_memory=False)
+            positions = pd.read_hdf(f"{position_folder_location}positions_{position_date}.h5",low_memory=False)
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
             full_route_positions = positions.copy()
         else:
-            positions = pd.read_hdf("input_position_files/positions_{}.h5".format(position_date),low_memory=False)
+            positions = pd.read_hdf(f"{position_folder_location}positions_{position_date}.h5",low_memory=False)
             logging.info("{}, {}, {}".format(position_date,len(positions), positions.columns))
 
             full_route_positions = full_route_positions.append(positions)
@@ -358,11 +361,25 @@ if __name__ == "__main__":
     NOTE - you may have to change the progress csv file location
     '''
 
+    gtfs_merge_file_path = "../data/gtfs_merge/"
+    agg_filename = [f for f in listdir(gtfs_merge_file_path) if isfile(join(gtfs_merge_file_path, f)) 
+                    and 'agg' in f][0]
+    routes_filename = [f for f in listdir(gtfs_merge_file_path) if isfile(join(gtfs_merge_file_path, f)) 
+                    and 'routes' in f][0]
+    shapes_filename = [f for f in listdir(gtfs_merge_file_path) if isfile(join(gtfs_merge_file_path, f)) 
+                    and 'shapes' in f][0]
+    trips_filename = [f for f in listdir(gtfs_merge_file_path) if isfile(join(gtfs_merge_file_path, f)) 
+                    and 'trips' in f][0]
+
     logging.info("grabbing csv")
-    full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv",low_memory=False)
-    full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv",low_memory=False)
-    full_trips_gtfs = pd.read_csv("input_gtfs/gtfs_trips_2018-08-15_2018-12-12.csv",low_memory=False)
-    full_trip_stop_schedule = pd.read_csv("input_gtfs/gtfs_2018-08-15_2018-12-12.csv",low_memory=False)
+    full_routes_gtfs = pd.read_csv(f"{gtfs_merge_file_path}{routes_filename}", 
+                                    low_memory=False)
+    full_shapes_gtfs = pd.read_csv(f"{gtfs_merge_file_path}{shapes_filename}", 
+                                    low_memory=False)
+    full_trips_gtfs = pd.read_csv(f"{gtfs_merge_file_path}{trips_filename}", 
+                                    low_memory=False)
+    full_trip_stop_schedule = pd.read_csv(f"{gtfs_merge_file_path}{agg_filename}", 
+                                    low_memory=False)
 
     tripid_w_starttime = full_trip_stop_schedule.groupby('trip_id')\
                         .agg({'trip_start_time':'min'})\
