@@ -358,11 +358,6 @@ if __name__ == "__main__":
     NOTE - you may have to change the progress csv file location
     '''
 
-    logging.info("grabbing arguments")
-    route_of_interest_input = sys.argv[1]
-
-    route_of_interest_input = route_of_interest_input.strip("[]").split(",")
-
     logging.info("grabbing csv")
     full_routes_gtfs = pd.read_csv("input_gtfs/gtfs_routes_2018-08-15_2018-12-12.csv",low_memory=False)
     full_shapes_gtfs = pd.read_csv("input_gtfs/gtfs_shapes_2018-08-15_2018-12-12.csv",low_memory=False)
@@ -378,6 +373,10 @@ if __name__ == "__main__":
     route_name_to_id_dict = dict(zip(full_routes_gtfs.route_short_name.tolist(),
                                 full_routes_gtfs.route_id.tolist()))
 
+    logging.info("grabbing arguments")
+    route_of_interest_input = sys.argv[1]
+    logging.info("route of interest argument = {}".format(route_of_interest_input))
+
     if route_of_interest_input == 'all':
         
         # route progress .csv is created so that you can a) track progress and b) start where you left off
@@ -390,6 +389,7 @@ if __name__ == "__main__":
 
         remaining_routes = route_status_df[route_status_df['status']=='not_started']['route_name'].unique()
     else:
+        route_of_interest_input = route_of_interest_input.strip("[]").split(",")
         remaining_routes = route_of_interest_input
     month_list = ['201809', '201810', '201811']
     all_route_positions = get_positions_months(month_list)
