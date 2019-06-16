@@ -4,7 +4,7 @@ import numpy as np
 #such that C = A + t(B-A), i.e. t=(P-A).(B-A) / |B-A|^2,
 #because we need t to calculate the shape distance to the point C
 #using the shape distances to A and B.
-def project_onto_line(point, two_points_on_line):
+def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     Returns the projection of a point onto a line, i.e. the closest point on the line to the point.
 
@@ -36,21 +36,32 @@ def project_onto_line(point, two_points_on_line):
         The point on the line closest to `point`.
         The shape will be (1,d), the same as that of `point`.
     """
-    segment_start, segment_end = two_points_on_line
+    # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
-    projection = (point - segment_start).dot(direction) * direction / np.sum(direction**2)
-    return segment_start + projection
+    dist_ratio = (point - segment_start).dot(direction) / np.sum(direction**2)
+    # projection = dist_ratio * direction
+    return segment_start + dist_ratio*direction, dist_ratio
 
-def get_shape_point_data(gtfs_shapes_df, shape_id, shape_point_lat, shape_point_lat_lon):
+def get_shape_point_data(gtfs_shapes_df, shape_id, shape_pt_sequence=None, shape_point_lat=None, shape_point_lat_lon=None):
     """
     Find the row in the GTFS shapes dataframe for the (unique) point with the given
-    lattitude, longitude, and shape_id.
+    shape_id and either (1) shape_pt_sequence or (2) lattitude, longitude.
     """
-    return gtfs_shapes_df.loc[
-        (gtfs_shapes_df.shape_id==shape_id)
-        & (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
-        & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
-        ]
+    if shape_pt_sequence is not None:
+        shape_point_row = gtfs_shapes_df.loc[
+            (gtfs_shapes_df.shape_id==shape_id)
+            & (gtfs_shapes_df.shape_pt_sequence==shape_pt_sequence)
+            ]
+    elif (shape_point_lat is not None) and (shape_point_lat_lon is not None):
+        shape_point_row = gtfs_shapes_df.loc[
+            (gtfs_shapes_df.shape_id==shape_id)
+            & (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
+            & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
+            ]
+    else:
+        raise ValueError("Must pass either `shape_pt_sequence` or `shape_point_lat` and `shape_point_lon`.")
+
+    return shape_point_row
 
 def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=True, use_shape_pt_sequence=False):
     """
@@ -89,24 +100,65 @@ def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=T
 
     return adjacent_point_data
 
-#Still working on this...
-def find_adjacent_shape_point_data(shape_point_lat, shape_point_lat_lon, gtfs_shapes_df, shape_id):
+# #Deprecated
+# def find_adjacent_shape_point_data(shape_point_lat, shape_point_lat_lon, gtfs_shapes_df, shape_id):
+#     """
+#     Finds the 2 adjacent points to the specified shape point.
+#     """
+#     # mask = ((gtfs_shapes_df.shape_pt_lat==shape_point_lat)
+#     #         & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
+#     #         & (gtfs_shapes_df.shape_id==shape_id))
+#     #gtfs_shapes_df[gtfs_shapes_df]
+#     point_seq_number = gtfs_shapes_df.loc[
+#         (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
+#         & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
+#         & (gtfs_shapes_df.shape_id==shape_id)
+#         ].shape_pt_sequence.values
+#     # print(point_seq_number)
+#     df = gtfs_shapes_df[
+#                 (gtfs_shapes_df.shape_id==shape_id)
+#                 & (np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number)==1)
+#                 ]
+#     # print(np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number))
+#     return df
+
+#Not done yet...
+def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_shape_pt_sequence):
     """
-    Finds the 2 adjacent points to the specified shape point.
+    Find the closest point on the route to the vehicle's location.
     """
-    # mask = ((gtfs_shapes_df.shape_pt_lat==shape_point_lat)
-    #         & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
-    #         & (gtfs_shapes_df.shape_id==shape_id))
-    #gtfs_shapes_df[gtfs_shapes_df]
-    point_seq_number = gtfs_shapes_df.loc[
-        (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
-        & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
-        & (gtfs_shapes_df.shape_id==shape_id)
-        ].shape_pt_sequence.values
-    # print(point_seq_number)
-    df = gtfs_shapes_df[
-                (gtfs_shapes_df.shape_id==shape_id)
-                & (np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number)==1)
-                ]
-    # print(np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number))
-    return df
+    shape_pt_data = get_shape_point_data(shapes_df, shape_id, closest_shape_pt_sequence)
+    adjacent_shape_pt_data = get_adjacent_shape_point_data(shapes_df, shape_pt_data.index[0])
+
+    # Put longitude before lattitude to have the coordinates ordered (x,y)
+    vehicle_pt = np.array([veh_lon, veh_lat])
+    closest_shape_pt = shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
+    # closest_shape_pt = np.array([shape_point_data.shape_pt_lon, shape_point_data.shape_pt_lat])
+    adjacent_pts = [coordinates for coordinates in
+                    adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values]
+
+    # Find the closest point and distance ratio for each of the segments (1 or 2)
+    closest = [get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
+                for adjacent_pt in adjacent_pts]
+
+    if len(closest) == 1:
+        closest_pt, dist_ratio = *closest
+    else:
+        # Choose the closer of the two points
+        closest_pt, dist_ratio = closest[0]
+        pass
+
+    # Determine if closest_shape_pt is ahead of or behind the vehicle on the route.
+    # If it is ahead, set  dist_ratio = -dist_ratio
+
+    # Get the shape distance traveled for the two endpoints of the line segment
+
+    # Using the shape distances for the endpoints, compute the shape distance for the closest point
+    shape_dist_traveled = shape_pt_data.shape_dist_traveled + dist_ratio # times segment length
+
+    return closest_pt, shape_dist_traveled
+
+
+
+
+#
