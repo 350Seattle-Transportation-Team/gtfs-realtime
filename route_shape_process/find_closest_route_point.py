@@ -41,6 +41,53 @@ def project_onto_line(point, two_points_on_line):
     projection = (point - segment_start).dot(direction) * direction / np.sum(direction**2)
     return segment_start + projection
 
+def get_shape_point_data(gtfs_shapes_df, shape_id, shape_point_lat, shape_point_lat_lon):
+    """
+    Find the row in the GTFS shapes dataframe for the (unique) point with the given
+    lattitude, longitude, and shape_id.
+    """
+    return gtfs_shapes_df.loc[
+        (gtfs_shapes_df.shape_id==shape_id)
+        & (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
+        & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
+        ]
+
+def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=True, use_shape_pt_sequence=False):
+    """
+    Gets the 2 adjacent points to the shape point with the specified index
+    in the GTFS shapes dataframe.
+    """
+    point_data = gtfs_shapes_df.loc[shape_point_index]
+    # print(point_data)
+
+    if use_index:
+        adjacent_indices = []
+        if shape_point_index > 0:
+            adjacent_indices.append(shape_point_index-1)
+        if shape_point_index < len(gtfs_shapes_df)-1:
+            adjacent_indices.append(shape_point_index+1)
+
+        df_i = gtfs_shapes_df.loc[adjacent_indices]
+        df_i = df_i[df_i.shape_id == point_data.shape_id]
+        adjacent_point_data = df_i
+
+    if use_shape_pt_sequence:
+        # print(point_data.index)
+        # print(shape_point_index)
+        # point_seq_number = point_data.at[point_data.index,'shape_pt_sequence']
+        # print(type(point_data.shape_pt_sequence))
+        # point_seq_number = point_data.shape_pt_sequence
+        df_s = gtfs_shapes_df[
+                    (gtfs_shapes_df.shape_id==point_data.shape_id)
+                    & (np.abs(gtfs_shapes_df.shape_pt_sequence-point_data.shape_pt_sequence)==1)
+                    ]
+        adjacent_point_data = df_s
+
+    if use_index and use_shape_pt_sequence:
+        assert all(df_i == df_s), "Different sets of adjacent shape points found"
+
+    return adjacent_point_data
+
 #Still working on this...
 def find_adjacent_shape_point_data(shape_point_lat, shape_point_lat_lon, gtfs_shapes_df, shape_id):
     """
