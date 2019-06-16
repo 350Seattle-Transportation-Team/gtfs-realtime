@@ -54,11 +54,14 @@ def get_shape_point_data(gtfs_shapes_df, shape_id, shape_point_lat, shape_point_
 
 def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=True, use_shape_pt_sequence=False):
     """
-    Gets the 2 adjacent points to the shape point with the specified index
+    Gets the rows of the 2 adjacent points to the shape point with the specified index
     in the GTFS shapes dataframe.
+
+    The function can determine adjacency of points in the shape using (1) the points' indices (default),
+    in the shapes dataframe, (2) the points' 'shape_pt_sequence' field, or (3) both,
+    in which case it will check to make sure the two methods returned the same result.
     """
     point_data = gtfs_shapes_df.loc[shape_point_index]
-    # print(point_data)
 
     if use_index:
         adjacent_indices = []
@@ -72,11 +75,6 @@ def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=T
         adjacent_point_data = df_i
 
     if use_shape_pt_sequence:
-        # print(point_data.index)
-        # print(shape_point_index)
-        # point_seq_number = point_data.at[point_data.index,'shape_pt_sequence']
-        # print(type(point_data.shape_pt_sequence))
-        # point_seq_number = point_data.shape_pt_sequence
         df_s = gtfs_shapes_df[
                     (gtfs_shapes_df.shape_id==point_data.shape_id)
                     & (np.abs(gtfs_shapes_df.shape_pt_sequence-point_data.shape_pt_sequence)==1)
@@ -84,7 +82,10 @@ def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=T
         adjacent_point_data = df_s
 
     if use_index and use_shape_pt_sequence:
-        assert all(df_i == df_s), "Different sets of adjacent shape points found"
+        assert all(df_i == df_s), f"Different sets of adjacent shape points found:\n{df_i}\n{df_s}"
+
+    if not any([use_index, use_shape_pt_sequence]):
+        raise ValueError("At least one of the methods for finding adjacent points must be True.")
 
     return adjacent_point_data
 
