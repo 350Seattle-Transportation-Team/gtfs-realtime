@@ -1,5 +1,11 @@
 import numpy as np
 
+# def euclidean_dist(x,y):
+#     """
+#     Calculates the Euclidean distance between the points x and y.
+#     """
+#     return np.sum
+
 #Hmm, actually, we want this function to also return the scalar ratio t
 #such that C = A + t(B-A), i.e. t=(P-A).(B-A) / |B-A|^2,
 #because we need t to calculate the shape distance to the point C
@@ -38,7 +44,7 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
-    dist_ratio = (point - segment_start).dot(direction) / np.sum(direction**2)
+    dist_ratio = (point - segment_start).dot(direction) / np.sum(direction**2, axis=1)
     # projection = dist_ratio * direction
     return segment_start + dist_ratio*direction, dist_ratio
 
@@ -134,19 +140,30 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     vehicle_pt = np.array([veh_lon, veh_lat])
     closest_shape_pt = shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
     # closest_shape_pt = np.array([shape_point_data.shape_pt_lon, shape_point_data.shape_pt_lat])
-    adjacent_pts = [coordinates for coordinates in
-                    adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values]
+    # adjacent_pts = [coordinates for coordinates in
+    #                 adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values]
+    adjacent_pts = adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
 
     # Find the closest point and distance ratio for each of the segments (1 or 2)
-    closest = [get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
-                for adjacent_pt in adjacent_pts]
+    # closest = [get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
+    #             for adjacent_pt in adjacent_pts]
 
-    if len(closest) == 1:
-        closest_pt, dist_ratio = *closest
-    else:
-        # Choose the closer of the two points
-        closest_pt, dist_ratio = closest[0]
-        pass
+    closest_pt, dist_ratio = get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
+
+    # Find the squared distance from the vehicle to each of the projections
+    # so we can choose the closest point
+    dist_squared = np.sum((vehhicle_pt - closest_pt)**2, axis=1)
+
+    # if len(closest) == 1:
+    #     closest_pt, dist_ratio = closest
+    # else:
+    #     # Choose the closer of the two points
+    #     closest_pt, dist_ratio = closest[0]
+    #     pass
+
+    # Find the point and distance ratio corresponding to the closest distance
+    min_index = np.argmin(dist_squared)
+    closest_pt, dist_ratio = closest_pt[min_index], dist_ratio.reshape(2)[min_index]
 
     # Determine if closest_shape_pt is ahead of or behind the vehicle on the route.
     # If it is ahead, set  dist_ratio = -dist_ratio
