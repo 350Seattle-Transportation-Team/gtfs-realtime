@@ -1,12 +1,10 @@
 import numpy as np
 
-#Hmm, actually, we want this function to also return the scalar ratio t
-#such that C = A + t(B-A), i.e. t=(P-A).(B-A) / |B-A|^2,
-#because we need t to calculate the shape distance to the point C
-#using the shape distances to A and B.
 def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
-    Returns the projection of a point onto a line, i.e. the closest point on the line to the point.
+    Returns the projection C of a point P onto a line containing points A and B,
+    (i.e. the closest point C on the line AB to the point P), and also the signed
+    ratio t of the displacement AC to the parallel displacement AB.
 
     The formula for projecting the point P onto the line spanned by A and B is:
 
@@ -15,26 +13,43 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     where C is the projection (closest point to P), . is the dot product,
     * is scalar multiplication, and |x|^2 is the squared Euclidean norm of the vector x.
 
-    The calculation occurs in "affine coordinates" since the line is not assumed
+    The signed distance ratio t = + or - |AC|/|AB| is the unique scalar t such that
+
+    C = A + t(B-A),
+
+    and is computed by t=(P-A).(B-A) / |B-A|^2.
+
+    The calculatios occur in "affine coordinates" since the line is not assumed
     to go through the origin.
 
     Parameters
     ----------
     point : array_like (1D)
-        The point to projection onto the line, represented in orthonormal coordinates.
+        The point P to projection onto the line, represented in orthonormal coordinates.
         The shape should be (1,d), where d is the dimension of the space the point lives in.
 
-    two_points_on_line : array_like (2D)
-        The coordinates of two points on the line to project onto,
-        in the same orthonormal basis as for `point`.
-        The shape should be (2,d), where d is the same dimension as for `point`.
-        Each of the two rows gives the coordinates of one point on the line.
+    segment_start : array_like
+        The coordinates of the first point A on the line,
+        in the same orthonormal basis as for `point` P.
+        The shape should be (n,d), where n is the number of line segments to project onto
+        and d is the same dimension as for `point` P.
+
+    segment_end : array_like
+        The coordinates of the second point B on the line,
+        in the same orthonormal basis as for `point` P.
+        The shape should be (n,d), where n is the number of line segments to project onto
+        and d is the same dimension as for `point` P.
+
 
     Returns
     -------
-    closest_point : numpy.array (1D)
-        The point on the line closest to `point`.
-        The shape will be (1,d), the same as that of `point`.
+    closest_point : numpy.array
+        The point C on the line AB closest to `point` P.
+        The shape will be (n,d), the same as that of `segment_start` and `segment_start`.
+
+    dist_ratio : float or ndarray
+        The signed distance ratio t satisfying C = A + t(B-A).
+        If n=1, a float is returned. Otherwise the shape will be (1,n).
     """
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
@@ -100,65 +115,33 @@ def get_adjacent_shape_point_data(gtfs_shapes_df, shape_point_index, use_index=T
 
     return adjacent_point_data
 
-# #Deprecated
-# def find_adjacent_shape_point_data(shape_point_lat, shape_point_lat_lon, gtfs_shapes_df, shape_id):
-#     """
-#     Finds the 2 adjacent points to the specified shape point.
-#     """
-#     # mask = ((gtfs_shapes_df.shape_pt_lat==shape_point_lat)
-#     #         & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
-#     #         & (gtfs_shapes_df.shape_id==shape_id))
-#     #gtfs_shapes_df[gtfs_shapes_df]
-#     point_seq_number = gtfs_shapes_df.loc[
-#         (gtfs_shapes_df.shape_pt_lat==shape_point_lat)
-#         & (gtfs_shapes_df.shape_pt_lon==shape_point_lat_lon)
-#         & (gtfs_shapes_df.shape_id==shape_id)
-#         ].shape_pt_sequence.values
-#     # print(point_seq_number)
-#     df = gtfs_shapes_df[
-#                 (gtfs_shapes_df.shape_id==shape_id)
-#                 & (np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number)==1)
-#                 ]
-#     # print(np.abs(gtfs_shapes_df.shape_pt_sequence-point_seq_number))
-#     return df
-
-#Not done yet...
 def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_shape_pt_sequence):
     """
-    Find the closest point on the route to the vehicle's location.
+    Find the closest point on the route to the vehicle's location,
+    and the shape distance traveled to that point.
     """
+    # Get the shapes_df data for the closest shape point and its adjacent point(s) on the shape.
     shape_pt_data = get_shape_point_data(shapes_df, shape_id, closest_shape_pt_sequence)
     adjacent_shape_pt_data = get_adjacent_shape_point_data(shapes_df, shape_pt_data.index[0])
 
     # Put longitude before lattitude to have the coordinates ordered (x,y)
     vehicle_pt = np.array([veh_lon, veh_lat])
     closest_shape_pt = shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
-    # closest_shape_pt = np.array([shape_point_data.shape_pt_lon, shape_point_data.shape_pt_lat])
-    # adjacent_pts = [coordinates for coordinates in
-    #                 adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values]
     adjacent_pts = adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
 
-    # Find the closest point and distance ratio for each of the segments (1 or 2)
-    # closest = [get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
-    #             for adjacent_pt in adjacent_pts]
-
+    # Find the closest point and distance ratio for each of the route segments.
+    # This will return either 1 or 2 points and ratios, depending on the number of adjacent points.
     closest_pt, dist_ratio = get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pts)
 
     # Find the squared distance from the vehicle to each of the projections
     # so we can choose the closest point
     dist_squared = np.sum((vehicle_pt - closest_pt)**2, axis=1)
 
-    # if len(closest) == 1:
-    #     closest_pt, dist_ratio = closest
-    # else:
-    #     # Choose the closer of the two points
-    #     closest_pt, dist_ratio = closest[0]
-    #     pass
-
-    # Find the point and distance ratio corresponding to the closest distance
+    # Find the point and distance ratio corresponding to the closest distance to the route
+    # by first getting the index of the smallest distance.
     min_index = np.argmin(dist_squared)
     # Reset closest_pt, dist_ratio to be a single point and a single distance,
-    # rather than arrays of possibly two points and distances
+    # rather than arrays of possibly two points and distances.
     closest_pt = closest_pt[min_index]
     dist_ratio = dist_ratio.reshape(2)[min_index]
 
@@ -169,13 +152,9 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     closest_shape_dist = shape_pt_data.iloc[0].shape_dist_traveled
     next_shape_dist = adjacent_shape_pt_data.iloc[min_index].shape_dist_traveled
 
-    # # Determine if closest_shape_pt is ahead of or behind the vehicle on the route.
-    # # If it is ahead, negate dist_ratio because we'll need to subtract from the
-    # # original distance instead of add to it.
-    # if next_shape_dist < closest_shape_dist:
-    #     dist_ratio = -dist_ratio
-
     # Using the shape distances for the endpoints, compute the shape distance for the closest point
+    # Note that if next_shape_dist < closest_shape_dist, this will do the correct thing and
+    # subtract the appropriate distance fromm closest_shape_dist.
     shape_dist_traveled = closest_shape_dist + dist_ratio * (next_shape_dist - closest_shape_dist)
 
     return closest_pt, shape_dist_traveled
