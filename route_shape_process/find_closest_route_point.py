@@ -1,11 +1,5 @@
 import numpy as np
 
-# def euclidean_dist(x,y):
-#     """
-#     Calculates the Euclidean distance between the points x and y.
-#     """
-#     return np.sum
-
 #Hmm, actually, we want this function to also return the scalar ratio t
 #such that C = A + t(B-A), i.e. t=(P-A).(B-A) / |B-A|^2,
 #because we need t to calculate the shape distance to the point C
@@ -148,11 +142,11 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     # closest = [get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
     #             for adjacent_pt in adjacent_pts]
 
-    closest_pt, dist_ratio = get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pt)
+    closest_pt, dist_ratio = get_projection_and_dist_ratio(vehicle_pt, closest_shape_pt, adjacent_pts)
 
     # Find the squared distance from the vehicle to each of the projections
     # so we can choose the closest point
-    dist_squared = np.sum((vehhicle_pt - closest_pt)**2, axis=1)
+    dist_squared = np.sum((vehicle_pt - closest_pt)**2, axis=1)
 
     # if len(closest) == 1:
     #     closest_pt, dist_ratio = closest
@@ -163,15 +157,26 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
 
     # Find the point and distance ratio corresponding to the closest distance
     min_index = np.argmin(dist_squared)
-    closest_pt, dist_ratio = closest_pt[min_index], dist_ratio.reshape(2)[min_index]
+    # Reset closest_pt, dist_ratio to be a single point and a single distance,
+    # rather than arrays of possibly two points and distances
+    closest_pt = closest_pt[min_index]
+    dist_ratio = dist_ratio.reshape(2)[min_index]
 
-    # Determine if closest_shape_pt is ahead of or behind the vehicle on the route.
-    # If it is ahead, set  dist_ratio = -dist_ratio
+    # Get the shape distance traveled for the two endpoints of the line segment,
+    # i.e. the shape distance traveled to the original closest shape point
+    # and to the other end of the segment that the closest route point lies on,
+    # using min_index to find the correct adjacent shape point for the segment.
+    closest_shape_dist = shape_pt_data.iloc[0].shape_dist_traveled
+    next_shape_dist = adjacent_shape_pt_data.iloc[min_index].shape_dist_traveled
 
-    # Get the shape distance traveled for the two endpoints of the line segment
+    # # Determine if closest_shape_pt is ahead of or behind the vehicle on the route.
+    # # If it is ahead, negate dist_ratio because we'll need to subtract from the
+    # # original distance instead of add to it.
+    # if next_shape_dist < closest_shape_dist:
+    #     dist_ratio = -dist_ratio
 
     # Using the shape distances for the endpoints, compute the shape distance for the closest point
-    shape_dist_traveled = shape_pt_data.shape_dist_traveled + dist_ratio # times segment length
+    shape_dist_traveled = closest_shape_dist + dist_ratio * (next_shape_dist - closest_shape_dist)
 
     return closest_pt, shape_dist_traveled
 
