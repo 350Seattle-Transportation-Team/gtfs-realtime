@@ -53,7 +53,8 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
-    dist_ratio = (point - segment_start).dot(direction) / np.sum(direction**2, axis=1)
+    print(point, segment_start, direction)
+    dist_ratio = (point - segment_start).dot(direction.T) / np.sum(direction**2, axis=1)
     # projection = dist_ratio * direction
     return segment_start + dist_ratio*direction, dist_ratio
 
