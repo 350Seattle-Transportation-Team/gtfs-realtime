@@ -1,6 +1,14 @@
 """
 Script by Ben Malnor for converting raw gtfs .pb files into more user-friendly .zip files.
 
+There are three .pb files per minute, one for each API endpoint:
+endpoints = {'position': 'gtfs_realtime/vehicle-positions-for-agency/{agency}.pb',
+               'alert': 'gtfs_realtime/alerts-for-agency/{agency}.pb',
+               'update': 'gtfs_realtime/trip-updates-for-agency/{agency}.pb'}
+
+^^ all processes in the subsequent notebooks focus on 'position' files but it's worth
+knowing that there are two other endpoints.
+
 The general process for using the script is:
 - download raw from S3 to local/EC2
 - clean / put in .csv
@@ -331,7 +339,9 @@ def put_zip_s3(zip_file_name,year,month):
 if __name__ == "__main__":
     '''
     usage - python unpack_pb_files.py <update or position> <start_date> <end_date>
-    e.g. python unpack_pb_files.py "update" "12/01/2018" "12/17/2018"
+    e.g. python unpack_pb_files.py "position" "12/01/2018" "12/17/2018"
+    the above will "unpack" position endpoint .pb files from 12/01/2018 - 12/17/2018
+    and put them in s3_bucket_base/unpacked/year/month/ folder
     '''
 
     file_option = sys.argv[1]
