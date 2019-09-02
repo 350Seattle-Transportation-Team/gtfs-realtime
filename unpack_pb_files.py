@@ -43,6 +43,7 @@ import logging
 logging.basicConfig(filename='unpack_pb.log',level=logging.DEBUG)
 
 bucket_name = os.environ["BUS_BUCKET_NAME"]
+bucket_path = bucket_name+"/one_bus_away_raw"
 
 
 def make_single_day_position_zip_from_pb(date):
@@ -57,7 +58,7 @@ def make_single_day_position_zip_from_pb(date):
     #print(year, month, day)
     day_temp_storage_path = "./temp_data_storage_{}_{}".format(month, day)
 
-    aws_base_command = 'aws --quiet s3 sync s3://{}/{}/{}/'.format(bucket_name,
+    aws_base_command = 'aws --quiet s3 sync s3://{}/{}/{}/'.format(bucket_path,
                                                                 year,
                                                                 month
                                                                 )
@@ -126,7 +127,7 @@ def make_single_day_update_zip_from_pb(date):
     #print(year, month, day)
     day_temp_storage_path = "./temp_data_storage_{}_{}".format(month, day)
 
-    aws_base_command = 'aws --quiet s3 sync s3://{}/{}/{}/'.format(bucket_name,
+    aws_base_command = 'aws --quiet s3 sync s3://{}/{}/{}/'.format(bucket_path,
                                                                 year,
                                                                 month
                                                                 )
@@ -331,7 +332,7 @@ def put_zip_s3(zip_file_name,year,month):
     '''
     '''
     bucket_suffix = "unpacked/{}/{}/".format(year,month)
-    aws_base_command = 'aws s3 cp {} s3://{}/{}'.format(zip_file_name, bucket_name,
+    aws_base_command = 'aws s3 cp {} s3://{}/{}'.format(zip_file_name, bucket_path,
                                                                     bucket_suffix
                                                                     )
     os.system(aws_base_command)
