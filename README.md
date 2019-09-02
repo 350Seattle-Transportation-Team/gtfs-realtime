@@ -77,7 +77,12 @@ Note: the data is stored using AWS. If AWS is unfamiliar, scroll down to "Using 
 
 Additionally, notebooks 2 and 3 reference GTFS feeds that should be downloaded from https://transitfeeds.com/p/king-county-metro/73 and unzipped to `data/source/gtfs_YYYYMMDD` folders.
 
-- `download_raw_locations.sh`: downloads raw data for January 2018
+- `download_raw_locations.sh`: downloads raw bus position data. In the file, you'll have to edit the year/month you're looking for:
+``` 
+s3:/bus350-data/unpacked/2019/06/
+```
+the above will download raw data for year:2019, month:06.\
+to see what month's are for each year, you can type `aws s3 ls s3:/bus350-data/unpacked/2018/`
 - `01_transform_source_data.ipynb`: transforms said data into a pandas DataFrame indexed on the datetime - the output of this is available on S3 in file `positions_201801.h5`
 - `02_transform_e_locations.ipynb`: selects northbound E-line vehicles and calculates `closest_stop_id` (used in future analysis) - the output of this is available on S3 in file `e_northbound_locations_2018-01.h5`
 - `03_e_segment_analysis.ipynb`: transforms data into a shape that will let us calculate time between two stops for northbound E (denny/aurora and 46th/aurora), then generates histograms for the distribution those commute times
