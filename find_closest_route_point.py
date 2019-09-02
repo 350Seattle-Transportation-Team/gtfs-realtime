@@ -3,8 +3,8 @@ import numpy as np
 def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     Returns the projection C of a point P onto a line containing points A and B,
-    (i.e. the closest point C on the line AB to the point P), and also the signed
-    ratio t of the displacement AC to the parallel displacement AB.
+    (i.e. C is the closest point on the line AB to the point P), and also the signed
+    ratio t of the displacement AC to the (parallel) displacement AB.
 
     The formula for projecting the point P onto the line spanned by A and B is:
 
@@ -53,7 +53,8 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
-    dist_ratio = (point - segment_start).dot(direction) / np.sum(direction**2, axis=1)
+    # print(point, segment_start, direction)
+    dist_ratio = (point - segment_start).dot(direction.T) / np.sum(direction**2, axis=1)
     # projection = dist_ratio * direction
     return segment_start + dist_ratio*direction, dist_ratio
 
@@ -143,7 +144,7 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     # Reset closest_pt, dist_ratio to be a single point and a single distance,
     # rather than arrays of possibly two points and distances.
     closest_pt = closest_pt[min_index]
-    dist_ratio = dist_ratio.reshape(2)[min_index]
+    dist_ratio = dist_ratio.reshape(-1)[min_index]
 
     # Get the shape distance traveled for the two endpoints of the line segment,
     # i.e. the shape distance traveled to the original closest shape point
