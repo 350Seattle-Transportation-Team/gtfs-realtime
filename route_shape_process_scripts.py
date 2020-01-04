@@ -5,7 +5,6 @@ import geopandas as gpd
 from geopandas import GeoDataFrame
 from shapely.geometry import Point, LineString, MultiLineString
 from shapely.ops import nearest_points
-import networkx as nx
 import multiprocessing
 from datetime import datetime
 import multiprocessing
