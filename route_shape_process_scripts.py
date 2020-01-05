@@ -32,7 +32,7 @@ logging.basicConfig(filename=log_filename,
                     datefmt="%Y-%m-%d %H:%M:%S")
 
 #you'll need to save the s3 bucket name in your environmental variables (or switch this reference)
-bucket_name = os.environ["BUS_BUCKET_NAME"]
+bucket_name = "bus350-data" #os.environ["BUS_BUCKET_NAME"]
 
 ##################################################################################
 ##########################    UTILITY FUNCTIONS   ################################
@@ -298,7 +298,7 @@ def join_tripstart(distance_time_list_df, full_trip_stop_schedule, trip_id_with_
     position_w_node_schedule = positions_w_near_node_df.merge(full_trip_stop_schedule,how='left',
                                                         left_on=['trip_id','route_id','shape_id','shape_pt_sequence'], 
                                                         right_on=['trip_id','route_id','shape_id','stop_sequence'])
-    position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence','shape_pt_seq_tuple'], keep='last', inplace=True)
+    position_w_node_schedule.drop_duplicates(['month_day_trip_veh','shape_pt_sequence'], keep='last', inplace=True)
     position_w_node_schedule['time_pct'] = position_w_node_schedule['time_pct'].dt.tz_convert('US/Pacific')
 
     position_w_node_schedule = position_w_node_schedule.merge(trip_id_with_starttime, how='left', on='trip_id')
