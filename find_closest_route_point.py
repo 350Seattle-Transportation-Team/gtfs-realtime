@@ -54,7 +54,11 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
     # print(point, segment_start, direction)
-    dist_ratio = (point - segment_start).dot(direction.T) / np.sum(direction**2, axis=1)
+    dist_ratio = ((point - segment_start).dot(direction.T) 
+                    / 
+                    np.sum(direction**2, axis=1))
+                    .reshape(-1,1)
+                    # we reshape so that adjacent point direction
     # projection = dist_ratio * direction
     return segment_start + dist_ratio*direction, dist_ratio
 
