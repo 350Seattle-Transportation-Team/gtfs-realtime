@@ -1,4 +1,7 @@
 import numpy as np
+import multiprocessing
+import pandas as pd
+from functools import partial
 
 def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
@@ -53,14 +56,48 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
     """
     # segment_start, segment_end = two_points_on_line
     direction = segment_end - segment_start
+    #calc the squared Euclidean norm of the direction
+    euc_norm = np.sum(direction**2, axis=1)
+    #replace 0 values with very small number
+    euc_norm_fixed = np.where(euc_norm==0, 0.00001, euc_norm)
     # print(point, segment_start, direction)
     dist_ratio = ((point - segment_start).dot(direction.T) 
                     / 
-                    np.sum(direction**2, axis=1))
-                    .reshape(-1,1)
+                    euc_norm_fixed
+                    
+             ).reshape(-1,1)
+                    
                     # we reshape so that adjacent point direction
     # projection = dist_ratio * direction
     return segment_start + dist_ratio*direction, dist_ratio
+
+def get_closeset_point_parallel(df, full_shapes_gtfs, shape_id):
+    '''
+    '''
+    df['closest_pt_on_route_tuple'] = df.apply(lambda x: 
+                                        find_closest_point_on_route(full_shapes_gtfs, 
+                                                                shape_id, 
+                                                                np.float(x.vehicle_lat), 
+                                                                np.float(x.vehicle_long), 
+                                                                x.shape_pt_sequence),
+                                        axis=1
+                                       )
+    return df
+
+def get_closeset_point_process(df, full_shapes_gtfs, shape_id):
+    #n_pools = multiprocessing.cpu_count() - 1
+    n_pools = 2
+    pool = multiprocessing.Pool(n_pools)
+    num_splits = n_pools
+    df_list = np.array_split(df, num_splits)
+    df_w_closest_pt = pd.concat(pool.map(partial(get_closeset_point_parallel, 
+                                                          full_shapes_gtfs=full_shapes_gtfs,
+                                                          shape_id=shape_id
+                                                          ),
+                                                  df_list))
+    pool.close()
+    pool.join()
+    return df_w_closest_pt
 
 def get_shape_point_data(gtfs_shapes_df, shape_id, shape_pt_sequence=None, shape_point_lat=None, shape_point_lat_lon=None):
     """
@@ -132,6 +169,11 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     # Put longitude before lattitude to have the coordinates ordered (x,y)
     vehicle_pt = np.array([veh_lon, veh_lat])
     closest_shape_pt = shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
+    if len(closest_shape_pt) > 1: #in case you have multiple gtfs rows
+        closest_shape_pt = closest_shape_pt[0].reshape(1,2)
+    else:
+        pass
+
     adjacent_pts = adjacent_shape_pt_data[['shape_pt_lon', 'shape_pt_lat']].values
 
     # Find the closest point and distance ratio for each of the route segments.
