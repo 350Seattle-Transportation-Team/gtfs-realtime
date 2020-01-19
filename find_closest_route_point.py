@@ -69,19 +69,24 @@ def get_projection_and_dist_ratio(point, segment_start, segment_end):
                     
                     # we reshape so that adjacent point direction
     # projection = dist_ratio * direction
-    return segment_start + dist_ratio*direction, dist_ratio
+    return (segment_start + dist_ratio*direction, dist_ratio)
 
 def get_closeset_point_parallel(df, full_shapes_gtfs, shape_id):
     '''
     '''
-    df['closest_pt_on_route_tuple'] = df.apply(lambda x: 
-                                        find_closest_point_on_route(full_shapes_gtfs, 
+    df.loc[:,'closest_pt_on_route_tuple'] = (df.
+                                        loc[:,['vehicle_lat',
+                                        'vehicle_long',
+                                        'shape_pt_sequence']]
+                                        .apply(lambda x: 
+                                        find_closest_point_on_route(
+                                                                full_shapes_gtfs, 
                                                                 shape_id, 
                                                                 np.float(x.vehicle_lat), 
                                                                 np.float(x.vehicle_long), 
                                                                 x.shape_pt_sequence),
                                         axis=1
-                                       )
+                                       ))
     return df
 
 def get_closeset_point_process(df, full_shapes_gtfs, shape_id):
@@ -204,7 +209,7 @@ def find_closest_point_on_route(shapes_df, shape_id, veh_lat, veh_lon, closest_s
     # subtract the appropriate distance fromm closest_shape_dist.
     shape_dist_traveled = closest_shape_dist + dist_ratio * (next_shape_dist - closest_shape_dist)
 
-    return closest_pt, shape_dist_traveled
+    return (closest_pt, shape_dist_traveled)
 
 
 
