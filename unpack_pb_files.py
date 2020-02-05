@@ -87,19 +87,14 @@ def make_single_day_position_zip_from_pb(date):
 
     full_position_df = position_files_to_df(day_temp_storage_path)
 
-    csv_file_name = day_temp_storage_path+"/{}_{}_{}_positions.csv".format(year,
+    h5_file_name = day_temp_storage_path+"/{}_{}_{}_positions.h5".format(year,
                                                                         month,
                                                                         day)
-    zip_file_name = day_temp_storage_path+"/{}_{}_{}_positions.zip".format(year,
-                                                                        month,
-                                                                        day)
-    #print("making zip")
-    make_zip_csv(full_position_df,
-                                csv_file_name,
-                                zip_file_name)
-    put_zip_s3(zip_file_name,year,month)
+    #print("making h5")
+    full_position_df.to_hdf(h5_file_name, key='df', mode='w')
+    put_h5_s3(h5_file_name,year,month)
 
-    #print("zip made")
+    #print("h5 made")
 
     print("finished process for {}/{}/{} data".format(
                                                 year,
@@ -151,17 +146,13 @@ def make_single_day_update_zip_from_pb(date):
 
     full_update_df = update_files_to_df(day_temp_storage_path)
 
-    csv_file_name = day_temp_storage_path+"/{}_{}_{}_updates.csv".format(year,
+    h5_file_name = day_temp_storage_path+"/{}_{}_{}_updates.h5".format(year,
                                                                         month,
                                                                         day)
-    zip_file_name = day_temp_storage_path+"/{}_{}_{}_updates.zip".format(year,
-                                                                        month,
-                                                                        day)
+
     #print("making zip")
-    make_zip_csv(full_update_df,
-                                csv_file_name,
-                                zip_file_name)
-    put_zip_s3(zip_file_name,year,month)
+    full_update_df.to_hdf(h5_file_name, key='df', mode='w')
+    put_h5_s3(h5_file_name,year,month)
 
     #print("zip made")
 
@@ -190,19 +181,22 @@ def make_date_range(start_date, end_date):
 
 def position_files_to_df(day_temp_storage_path):
     folder_list = [f for f in os.listdir(day_temp_storage_path) if not f.startswith(".")]
+    logging.info(folder_list)
+    bad_header_list = []
     for i, folder in enumerate(folder_list):
         folder_path = os.path.join(day_temp_storage_path,folder)
         #print("working on #{} in folder_path {}".format(i,folder_path))
         all_subfiles_list = [f for f in os.listdir(folder_path)]
         pb_file_list = list(filter(lambda x: 'position' in x,
                                         all_subfiles_list))
-        position_list, bad_update_header_list = make_vehicle_list(pb_file_list, folder_path)
-
+        position_list, bad_headers = make_vehicle_list(pb_file_list, folder_path)
+        bad_header_list.append(bad_headers)
         partial_position_df = pd.DataFrame(position_list)
         if i == 0:
             full_position_df = partial_position_df.copy()
         else:
             full_position_df = full_position_df.append(partial_position_df)
+    logging.info(f"folder_path = {folder_path} - bad_headers = {bad_update_header_list}")
         #print("finished #{} in folder_path {}".format(i,folder_path))
     full_position_df = make_clean_position_pandas(full_position_df)
     return full_position_df
@@ -243,12 +237,12 @@ def make_vehicle_list(pb_file_list, folder_path):
     return vehicle_list, bad_vehicle_header_list
 
 def make_clean_position_pandas(position_df):
-    position_df['route_id'] = position_df['route_id'].astype(int)
-    position_df['trip_id'] = position_df['trip_id'].astype(int)
-    position_df['vehicle_id'] = position_df['vehicle_id'].astype(int)
+    position_df.loc[:,'route_id'] = position_df['route_id'].astype(str)
+    position_df.loc[:,'trip_id'] = position_df['trip_id'].astype(str)
+    position_df.loc[:,'vehicle_id'] = position_df['vehicle_id'].astype(str)
     position_df = position_df.drop_duplicates(['trip_id','vehicle_id','route_id','timestamp'],keep='first')
-    position_df['time_utc'] = pd.to_datetime(position_df['timestamp'], unit='s')
-    position_df['time_pct'] = position_df.apply(update_timestamp, axis=1)
+    position_df.loc[:,'time_utc'] = pd.to_datetime(position_df['timestamp'], unit='s').copy()
+    position_df['time_pst'] = position_df.apply(update_timestamp, axis=1)
     return position_df
 
 def make_update_list(pb_file_list, folder_path):
@@ -296,42 +290,40 @@ def make_clean_update_pandas(update_df):
                                                     ).tail(1) #grab only the top value (largest delay)
     update_df.reset_index(drop=True,inplace=True)
     update_df['time_utc'] = pd.to_datetime(update_df['timestamp'], unit='s')
-    update_df['time_pct'] = update_df.apply(update_timestamp, axis=1)
+    update_df['time_pst'] = update_df.apply(update_timestamp, axis=1)
     return update_df
 
 def update_timestamp(row):
     time_utc = row['time_utc'].tz_localize(timezone('UTC'))
-    time_pct = time_utc.astimezone(timezone('US/Pacific'))
-    return time_pct
+    time_pst = time_utc.astimezone(timezone('US/Pacific'))
+    return time_pst
 
 def update_files_to_df(day_temp_storage_path):
     folder_list = [f for f in os.listdir(day_temp_storage_path) if not f.startswith(".")]
+    bad_header_list = []
     for i, folder in enumerate(folder_list):
         folder_path = os.path.join(day_temp_storage_path,folder)
         #print("working on #{} in folder_path {}".format(i,folder_path))
         all_subfiles_list = [f for f in os.listdir(folder_path)]
         pb_file_list = list(filter(lambda x: 'update' in x,
                                         all_subfiles_list))
-        update_list, bad_update_header_list = make_update_list(pb_file_list, folder_path)
-
+        update_list, bad_headers = make_update_list(pb_file_list, folder_path)
+        bad_header_list.append(bad_headers)
         partial_update_df = pd.DataFrame(update_list)
         if i == 0:
             full_update_df = partial_update_df.copy()
         else:
             full_update_df = full_update_df.append(partial_update_df)
+    logging.info(f"folder_path = {folder_path} - bad_headers = {bad_header_list}")
         #print("finished #{} in folder_path {}".format(i,folder_path))
     full_update_df = make_clean_update_pandas(full_update_df)
     return full_update_df
 
-def make_zip_csv(full_update_df, csv_file_name, zip_file_name):
-    full_update_df.to_csv(csv_file_name, index=False)
-    os.system('zip {} {}'.format(zip_file_name, csv_file_name))
-
-def put_zip_s3(zip_file_name,year,month):
+def put_h5_s3(h5_file_name,year,month):
     '''
     '''
     bucket_suffix = "unpacked/{}/{}/".format(year,month)
-    aws_base_command = 'aws s3 cp {} s3://{}/{}'.format(zip_file_name, bucket_name,
+    aws_base_command = 'aws s3 cp {} s3://{}/{}'.format(h5_file_name, bucket_name,
                                                                     bucket_suffix
                                                                     )
     os.system(aws_base_command)

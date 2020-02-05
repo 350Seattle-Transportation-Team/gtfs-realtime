@@ -9,3 +9,6 @@ __pycache__
 
 #vscode
 .vscode
+
+#protobuf files
+.pb
