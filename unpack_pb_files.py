@@ -182,7 +182,6 @@ def make_date_range(start_date, end_date):
 def position_files_to_df(day_temp_storage_path):
     folder_list = [f for f in os.listdir(day_temp_storage_path) if not f.startswith(".")]
     logging.info(folder_list)
-    bad_header_list = []
     for i, folder in enumerate(folder_list):
         folder_path = os.path.join(day_temp_storage_path,folder)
         #print("working on #{} in folder_path {}".format(i,folder_path))
@@ -190,13 +189,11 @@ def position_files_to_df(day_temp_storage_path):
         pb_file_list = list(filter(lambda x: 'position' in x,
                                         all_subfiles_list))
         position_list, bad_headers = make_vehicle_list(pb_file_list, folder_path)
-        bad_header_list.append(bad_headers)
         partial_position_df = pd.DataFrame(position_list)
         if i == 0:
             full_position_df = partial_position_df.copy()
         else:
             full_position_df = full_position_df.append(partial_position_df)
-    logging.info(f"folder_path = {folder_path} - bad_headers = {bad_update_header_list}")
         #print("finished #{} in folder_path {}".format(i,folder_path))
     full_position_df = make_clean_position_pandas(full_position_df)
     return full_position_df
@@ -242,7 +239,7 @@ def make_clean_position_pandas(position_df):
     position_df.loc[:,'vehicle_id'] = position_df['vehicle_id'].astype(str)
     position_df = position_df.drop_duplicates(['trip_id','vehicle_id','route_id','timestamp'],keep='first')
     position_df.loc[:,'time_utc'] = pd.to_datetime(position_df['timestamp'], unit='s').copy()
-    position_df['time_pst'] = position_df.apply(update_timestamp, axis=1)
+    position_df.loc[:,'time_pst'] = position_df.apply(update_timestamp, axis=1).copy()
     return position_df
 
 def make_update_list(pb_file_list, folder_path):
@@ -289,8 +286,8 @@ def make_clean_update_pandas(update_df):
                                                      'stop_id']
                                                     ).tail(1) #grab only the top value (largest delay)
     update_df.reset_index(drop=True,inplace=True)
-    update_df['time_utc'] = pd.to_datetime(update_df['timestamp'], unit='s')
-    update_df['time_pst'] = update_df.apply(update_timestamp, axis=1)
+    update_df.loc[:,'time_utc'] = pd.to_datetime(update_df['timestamp'], unit='s').copy()
+    update_df.loc[:,'time_pst'] = update_df.apply(update_timestamp, axis=1).copy()
     return update_df
 
 def update_timestamp(row):
@@ -300,7 +297,6 @@ def update_timestamp(row):
 
 def update_files_to_df(day_temp_storage_path):
     folder_list = [f for f in os.listdir(day_temp_storage_path) if not f.startswith(".")]
-    bad_header_list = []
     for i, folder in enumerate(folder_list):
         folder_path = os.path.join(day_temp_storage_path,folder)
         #print("working on #{} in folder_path {}".format(i,folder_path))
@@ -308,13 +304,11 @@ def update_files_to_df(day_temp_storage_path):
         pb_file_list = list(filter(lambda x: 'update' in x,
                                         all_subfiles_list))
         update_list, bad_headers = make_update_list(pb_file_list, folder_path)
-        bad_header_list.append(bad_headers)
         partial_update_df = pd.DataFrame(update_list)
         if i == 0:
             full_update_df = partial_update_df.copy()
         else:
             full_update_df = full_update_df.append(partial_update_df)
-    logging.info(f"folder_path = {folder_path} - bad_headers = {bad_header_list}")
         #print("finished #{} in folder_path {}".format(i,folder_path))
     full_update_df = make_clean_update_pandas(full_update_df)
     return full_update_df
