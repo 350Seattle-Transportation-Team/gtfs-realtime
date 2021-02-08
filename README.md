@@ -73,7 +73,7 @@ Please see the instructions below to set up your python environment and get star
 
 # Description of scripts/notebooks
 
-Note: the data is stored using AWS. If AWS is unfamiliar, scroll down to "Using Amazon Web Services to access Ben’s data" below, for a little tutorial.
+Note: the data is stored using AWS. If AWS is unfamiliar, scroll down to "Using Amazon Web Services to access Ben’s data" below, for a little tutorial. Since there are some security concerns with an S3 bucket open to the public, please email Ben at ben.malnor@gmail.com to coordinate access.
 
 Additionally, notebooks 2 and 3 reference GTFS feeds that should be downloaded from https://transitfeeds.com/p/king-county-metro/73 and unzipped to `data/source/gtfs_YYYYMMDD` folders.
 
